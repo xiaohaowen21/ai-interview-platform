@@ -1,0 +1,6 @@
+fastapi==0.116.1
+uvicorn==0.35.0
+edge-tts==7.2.3
+httpx==0.28.1
+dashscope==1.25.13
+python-multipart==0.0.20

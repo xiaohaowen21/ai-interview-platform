@@ -1,0 +1,107 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* 启用深色模式 - 使用 class 策略 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+
+/* 自定义主题 */
+@theme {
+  --color-primary-50: #ecfeff;
+  --color-primary-100: #cffafe;
+  --color-primary-200: #a5f3fc;
+  --color-primary-300: #67e8f9;
+  --color-primary-400: #22d3ee;
+  --color-primary-500: #14b8a6;
+  --color-primary-600: #0f766e;
+  --color-primary-700: #155e75;
+  --color-primary-800: #164e63;
+  --color-primary-900: #134e4a;
+
+    --font-sans: 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica,
+    Arial, sans-serif;
+}
+
+/* 自定义基础样式 */
+@layer base {
+  html, body, #root {
+    @apply h-full m-0 p-0;
+  }
+
+  body {
+      @apply antialiased;
+      @apply bg-slate-50 text-slate-900;
+      @apply dark:bg-slate-950 dark:text-slate-100;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+/* 深色模式通用样式 - 自动应用于所有卡片和容器 */
+@layer components {
+    /* 通用卡片背景 */
+    .dark-card {
+        @apply bg-white dark:bg-slate-800 rounded-2xl;
+    }
+
+    /* 通用输入框 */
+    .dark-input {
+        @apply bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white;
+    }
+
+    /* 通用文字颜色 */
+    .dark-text {
+        @apply text-slate-900 dark:text-white;
+    }
+
+    .dark-text-muted {
+        @apply text-slate-500 dark:text-slate-400;
+    }
+}
+
+/* 自定义滚动条 */
+@layer utilities {
+  @keyframes aurora {
+    from {
+      background-position: 50% 50%, 50% 50%;
+    }
+
+    to {
+      background-position: 350% 50%, 350% 50%;
+    }
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    border-radius: 0.25rem;
+    background-color: rgb(241 245 249);
+  }
+
+  .dark .scrollbar-thin::-webkit-scrollbar-track {
+    background-color: rgb(30 41 59);
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    border-radius: 0.25rem;
+    background-color: rgb(203 213 225);
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(148 163 184);
+  }
+
+  .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgb(71 85 105);
+  }
+
+  .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(100 116 139);
+  }
+}

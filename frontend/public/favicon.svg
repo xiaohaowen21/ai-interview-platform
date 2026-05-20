@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- 背景圆形 -->
+  <rect width="32" height="32" rx="8" fill="url(#gradient)"/>
+
+  <!-- 人物图标 -->
+  <circle cx="16" cy="11" r="4" fill="white"/>
+  <path d="M9 23c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+
+  <!-- AI 星星装饰 -->
+  <path d="M24 6l0.5 1.5L26 8l-1.5 0.5L24 10l-0.5-1.5L22 8l1.5-0.5L24 6z" fill="#fbbf24"/>
+  <path d="M7 8l0.3 0.9L8 9.2l-0.7 0.3L7 10.4l-0.3-0.9L6 9.2l0.7-0.3L7 8z" fill="#fbbf24"/>
+
+  <!-- 渐变定义 -->
+  <defs>
+    <linearGradient id="gradient" x1="0" y1="0" x2="32" y2="32">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+</svg>

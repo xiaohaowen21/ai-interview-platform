@@ -1,0 +1,74 @@
+# 非商业许可协议
+# Non-Commercial License Agreement
+
+**版本 1.0 / Version 1.0**
+
+## 中文版本
+
+### 1. 授权范围
+
+本许可以**非商业目的**为前提，授予您以下权利：
+
+- ✅ **学习与教学**：个人学习、学术研究、教育培训可免费使用
+- ✅ **非盈利项目**：非商业组织、公益项目的内部使用
+- ✅ **修改与分发**：您可以修改软件，并以源代码或二进制形式分发，但必须遵守本协议条款
+
+### 2. 限制
+
+- ❌ **禁止商业用途**：未经授权，不得将本软件或其衍生作品用于商业目的
+- ❌ **禁止竞赛提交**：**严禁将本软件或其衍生作品作为参赛作品提交至任何形式的竞赛、比赛、评选、招投标或类似活动**。如果违反此条款，作者保留公开谴责和追究责任的权利
+- ❌ **禁止商标使用**：未经授权，不得使用项目名称、Logo 或作者名义进行推广
+
+### 3. 署名要求
+
+分发或使用本软件时，**必须保留以下署名的超链接或文字**：
+
+```
+本项目基于 ai-interview-platform，原作者：xiaohaowen21
+GitHub: https://github.com/xiaohaowen21/ai-interview-platform
+```
+
+### 4. 商业授权
+
+商业使用（包括但不限于企业内使用、商业产品销售、SaaS 服务、付费技术支持、咨询项目）需联系作者获取单独授权。
+
+联系方式：通过 GitHub Issues 或项目主页联系。
+
+### 5. 免责声明
+
+本软件按"原样"提供，不提供任何明示或暗示的担保。作者不对因使用本软件造成的任何损失承担责任。
+
+---
+
+## English Version
+
+### 1. Grant of Rights
+
+This license grants you the following rights for **non-commercial purposes only**:
+
+- ✅ **Learning & Teaching**: Personal learning, academic research, and education
+- ✅ **Non-Profit Projects**: Internal use by non-profit organizations
+- ✅ **Modification & Distribution**: You may modify and distribute the software, provided you comply with this license
+
+### 2. Restrictions
+
+- ❌ **No Commercial Use**: Commercial use requires explicit authorization
+- ❌ **No Competition Submission**: **You may NOT submit this software or its derivatives as entries in any competition, contest, evaluation, bid, or similar event.** Violation of this term grants the author the right to public disclosure and legal action
+- ❌ **No Trademark Use**: Project name, logo, and author identity may not be used without authorization
+
+### 3. Attribution
+
+Any distribution or use **must retain** the following attribution (with hyperlink):
+
+```
+This project is based on ai-interview-platform by xiaohaowen21
+GitHub: https://github.com/xiaohaowen21/ai-interview-platform
+```
+
+### 4. Commercial License
+
+Commercial use (including but not limited to: internal corporate use, commercial product sales, SaaS services, paid support, consulting projects) requires a separate license agreement. Contact the author via GitHub Issues.
+
+### 5. Disclaimer
+
+This software is provided "as is", without warranty of any kind. The author shall not be liable for any damages arising from the use of this software.

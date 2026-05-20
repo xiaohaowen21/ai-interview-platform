@@ -1,0 +1,144 @@
+# AI Interview Platform Configuration
+# 智能AI面试官平台配置
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ai-interview-platform
+  jackson:
+    time-zone: Asia/Shanghai
+
+  # 启用虚拟线程 (Java 21+)
+  # 显著提升 I/O 密集型场景的并发能力，特别适合 AI 调用和 SSE 长连接
+  threads:
+    virtual:
+      enabled: true
+
+  # PostgreSQL数据库配置
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:interview_guide}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  mail:
+    host: ${APP_MAIL_HOST:}
+    port: ${APP_MAIL_PORT:587}
+    username: ${APP_MAIL_USERNAME:}
+    password: ${APP_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${APP_MAIL_SMTP_AUTH:true}
+          ssl:
+            enable: ${APP_MAIL_SMTP_SSL_ENABLE:false}
+          starttls:
+            enable: ${APP_MAIL_SMTP_STARTTLS:true}
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 200MB  # 支持展示媒体/知识库上传（简历限制在业务层检查）
+      max-request-size: 200MB
+  
+
+  # Redisson配置 (使用 spring.redis.redisson，参考官方文档)
+  redis:
+    redisson:
+      config: |
+        singleServerConfig:
+          address: "redis://${REDIS_HOST:localhost}:${REDIS_PORT:6379}"
+          database: 0
+          connectionMinimumIdleSize: 10
+          connectionPoolSize: 64
+          subscriptionConnectionMinimumIdleSize: 1
+          subscriptionConnectionPoolSize: 50
+  
+  # Spring AI - 阿里云DashScope (OpenAI兼容模式)
+  ai:
+    openai:
+      base-url: https://dashscope.aliyuncs.com/compatible-mode
+      api-key: ${AI_BAILIAN_API_KEY}
+      chat:
+        options:
+          model: ${AI_MODEL:qwen-plus}
+          temperature: 0.2
+      # Embedding模型配置 - 使用text-embedding-v3
+      embedding:
+        options:
+          model: text-embedding-v3
+    # 禁用自动重试机制，让异常立即返回
+    retry:
+      max-attempts: 1  # 不重试，失败立即返回
+      on-client-errors: false
+    # PostgreSQL Vector Store配置
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1024  # text-embedding-v3实际生成的向量维度
+        initialize-schema: true # 开发环境设置为 true，方便快速启动。生产环境设置为 false，手动管理数据库 schema，避免意外变更。
+        remove-existing-vector-store-table: false  # 保留现有表和数据
+
+# Application custom configuration
+app:
+  ai:
+    # 结构化输出重试次数（用于 BeanOutputConverter 解析失败时的业务层重试）
+    structured-max-attempts: ${APP_AI_STRUCTURED_MAX_ATTEMPTS:2}
+    # 重试时是否将上次错误原因注入提示词，帮助模型定向修复输出
+    structured-include-last-error: ${APP_AI_STRUCTURED_INCLUDE_LAST_ERROR:true}
+    rag:
+      rewrite:
+        enabled: ${APP_AI_RAG_REWRITE_ENABLED:true}
+      search:
+        short-query-length: ${APP_AI_RAG_SHORT_QUERY_LENGTH:4}
+        topk-short: ${APP_AI_RAG_TOPK_SHORT:20}
+        topk-medium: ${APP_AI_RAG_TOPK_MEDIUM:12}
+        topk-long: ${APP_AI_RAG_TOPK_LONG:8}
+        min-score-short: ${APP_AI_RAG_MIN_SCORE_SHORT:0.18}
+        min-score-default: ${APP_AI_RAG_MIN_SCORE_DEFAULT:0.28}
+  interview:
+    follow-up-count: ${APP_INTERVIEW_FOLLOW_UP_COUNT:1}
+    evaluation:
+      batch-size: ${APP_INTERVIEW_EVALUATION_BATCH_SIZE:8}
+  resume:
+    upload-dir: ${java.io.tmpdir}/ai-interview/resumes
+    allowed-types:
+      - application/pdf
+      - application/msword
+      - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      - text/plain
+
+  # RustFS (S3兼容) 存储配置
+  storage:
+    endpoint: ${APP_STORAGE_ENDPOINT:http://localhost:9000}
+    access-key: ${APP_STORAGE_ACCESS_KEY:minioadmin}
+    secret-key: ${APP_STORAGE_SECRET_KEY:minioadmin}
+    bucket: ${APP_STORAGE_BUCKET:interview-guide}
+    region: ${APP_STORAGE_REGION:us-east-1}
+  
+  # CORS配置 - React前端
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://mianbaojob.xyz,http://localhost,http://localhost:80,http://localhost:81,http://127.0.0.1,http://127.0.0.1:80,http://127.0.0.1:81,http://localhost:5173,http://localhost:5174}
+  mock-interview:
+    url: ${APP_MOCK_INTERVIEW_URL:https://mianbaojob.xyz/mock-interview}
+  mail:
+    enabled: ${APP_MAIL_ENABLED:false}
+    from: ${APP_MAIL_FROM:}
+    sender-name: ${APP_MAIL_SENDER_NAME:}
+  turnstile:
+    enabled: ${APP_TURNSTILE_ENABLED:false}
+    secret-key: ${APP_TURNSTILE_SECRET_KEY:}
+  internal:
+    voice-token: ${APP_INTERNAL_VOICE_TOKEN:}

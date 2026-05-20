@@ -1,0 +1,48 @@
+# Ignore Gradle project-specific cache directory
+.gradle
+
+# Ignore Gradle build output directory
+build
+/.claude
+/.idea
+/app/bin
+# Environment variables
+.env
+# IDEA code analysis
+qodana.yaml
+
+app/src/main/resources/application-dev.yml
+/deploy-artifacts
+/run-logs
+/test-results
+/tmpssh
+/_ref_OpenAvatarChat/
+/.tmp-ssh
+/.tmp-pwrun
+/one-click-start.log
+/one-click-stop.log
+/deploy-*.tar.gz
+/admin-*.png
+/user-*.png
+/.codex-playwright-check.js
+/.pw-debug.spec.js
+/.project
+/.settings/
+/app/.classpath
+/app/.factorypath
+/app/.project
+/app/.settings/
+/tmp_pdf_preview/
+/tmp_vps_sync/
+/voice-service/__pycache__/
+*.pyc
+/%SCRIPT%
+/show_interview_ranges.py
+/tools/
+/frontend/dist/
+/frontend/node_modules/
+/frontend/.pnpm-home/
+/.gradle-local/
+/tmp_*.log
+*.docx
+/docs/项目上下文速记.md
