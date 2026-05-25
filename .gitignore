@@ -46,3 +46,6 @@ app/src/main/resources/application-dev.yml
 /tmp_*.log
 *.docx
 /docs/项目上下文速记.md
+
+# MCP configuration (local machine specific)
+.mcp.json
