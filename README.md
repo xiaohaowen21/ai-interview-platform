@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="screenshot/screenshot-01.png" alt="Interview Platform Logo" width="96" />
+  <img src="frontend/public/favicon-mascot.png" alt="Interview Platform Logo" width="96" />
   <h1>AI Interview Platform</h1>
   <p><strong>一套面向简历分析、AI 笔试/面试、知识库问答与后台配置管理的智能面试平台</strong></p>
   <p>Built with Spring Boot, React, FastAPI, PostgreSQL/pgvector, Redis and Docker Compose.</p>
@@ -30,28 +30,28 @@ AI Interview Platform 是一套完整的智能面试平台，围绕"上传简历
 <div align="center">
   <table>
     <tr>
-      <td><img src="screenshot/screenshot-01.png" alt="首页" width="400"/></td>
-      <td><img src="screenshot/screenshot-02.png" alt="简历分析" width="400"/></td>
+      <td><img src="screenshot/01-resume-upload.png" alt="简历上传分析" width="400"/></td>
+      <td><img src="screenshot/02-voice-interview.png" alt="语音面试" width="400"/></td>
     </tr>
     <tr>
-      <td align="center">首页 / 用户端</td>
-      <td align="center">简历分析</td>
-    </tr>
-    <tr>
-      <td><img src="screenshot/screenshot-03.png" alt="模拟面试" width="400"/></td>
-      <td><img src="screenshot/screenshot-04.png" alt="语音面试" width="400"/></td>
-    </tr>
-    <tr>
-      <td align="center">模拟面试</td>
+      <td align="center">简历上传分析</td>
       <td align="center">语音面试</td>
     </tr>
     <tr>
-      <td><img src="screenshot/screenshot-05.png" alt="管理后台" width="400"/></td>
-      <td><img src="screenshot/screenshot-06.png" alt="知识库问答" width="400"/></td>
+      <td><img src="screenshot/03-mock-interview.png" alt="模拟面试" width="400"/></td>
+      <td><img src="screenshot/04-knowledgebase-admin.png" alt="知识库管理" width="400"/></td>
     </tr>
     <tr>
-      <td align="center">管理后台</td>
-      <td align="center">知识库问答</td>
+      <td align="center">模拟面试</td>
+      <td align="center">知识库管理后台</td>
+    </tr>
+    <tr>
+      <td><img src="screenshot/05-knowledgebase-upload.png" alt="知识库上传" width="400"/></td>
+      <td><img src="screenshot/06-qa-assistant.png" alt="问答助手" width="400"/></td>
+    </tr>
+    <tr>
+      <td align="center">知识库上传</td>
+      <td align="center">问答助手</td>
     </tr>
   </table>
 </div>
