@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="frontend/public/favicon-mascot.png" alt="Interview Platform Logo" width="96" />
+  <img src="frontend/public/favicon-mascot.png" alt="AI Interview Platform Logo" width="96" />
   <h1>AI Interview Platform</h1>
   <p><strong>一套面向简历分析、AI 笔试/面试、知识库问答与后台配置管理的智能面试平台</strong></p>
   <p>Built with Spring Boot, React, FastAPI, PostgreSQL/pgvector, Redis and Docker Compose.</p>
@@ -7,6 +7,16 @@
   <p>
     <a href="#简体中文">简体中文</a> |
     <a href="#english-summary">English Summary</a>
+  </p>
+
+  <p>
+    <img src="https://img.shields.io/badge/License-Non--Commercial-blue.svg" alt="License" />
+    <img src="https://img.shields.io/badge/Java-21-orange.svg" alt="Java 21" />
+    <img src="https://img.shields.io/badge/Spring_Boot-4.0-brightgreen.svg" alt="Spring Boot 4.0" />
+    <img src="https://img.shields.io/badge/React-18.3-61dafb.svg" alt="React 18.3" />
+    <img src="https://img.shields.io/badge/FastAPI-0.116-009688.svg" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/PostgreSQL-pgvector-336791.svg" alt="PostgreSQL pgvector" />
+    <img src="https://img.shields.io/badge/Docker-Compose-2496ED.svg" alt="Docker Compose" />
   </p>
 </div>
 
