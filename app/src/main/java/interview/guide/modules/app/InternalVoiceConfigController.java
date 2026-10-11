@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+
 @RestController
 @RequiredArgsConstructor
 public class InternalVoiceConfigController {
@@ -27,7 +30,10 @@ public class InternalVoiceConfigController {
         if (internalVoiceToken == null || internalVoiceToken.isBlank()) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "内部语音配置未启用");
         }
-        if (token == null || !internalVoiceToken.equals(token)) {
+        if (token == null || !MessageDigest.isEqual(
+            internalVoiceToken.getBytes(StandardCharsets.UTF_8),
+            token.getBytes(StandardCharsets.UTF_8)
+        )) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "无权访问内部语音配置");
         }
 

@@ -1,5 +1,5 @@
 import { request } from './request';
-import { getCurrentUserId } from '../utils/auth';
+import { getAuthHeaders } from '../utils/auth';
 import type {
   CreateInterviewRequest,
   InterviewReport,
@@ -70,10 +70,7 @@ export const oralInterviewApi = {
       Accept: 'application/x-ndjson',
     };
 
-    const userId = getCurrentUserId();
-    if (userId) {
-      headers['X-User-Id'] = userId;
-    }
+    Object.assign(headers, getAuthHeaders());
 
     const response = await fetchWithTimeout(`${getApiBaseUrl()}/api/oral/sessions/${req.sessionId}/answers/stream`, {
       method: 'POST',

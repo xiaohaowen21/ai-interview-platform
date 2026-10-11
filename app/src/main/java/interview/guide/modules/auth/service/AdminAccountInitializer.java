@@ -76,7 +76,8 @@ public class AdminAccountInitializer {
     }
 
     private String normalizeAdminPassword() {
-        if (adminPassword == null || adminPassword.isBlank()) {
+        if (adminPassword == null || adminPassword.isBlank() || "admin123456".equals(adminPassword)) {
+            log.warn("管理员账号正在使用默认密码 admin123456，请通过 APP_ADMIN_PASSWORD 设置强密码后重启。");
             return "admin123456";
         }
         return adminPassword;
