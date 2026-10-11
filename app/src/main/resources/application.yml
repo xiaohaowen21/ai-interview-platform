@@ -142,3 +142,7 @@ app:
     secret-key: ${APP_TURNSTILE_SECRET_KEY:}
   internal:
     voice-token: ${APP_INTERNAL_VOICE_TOKEN:}
+  auth:
+    # 登录令牌签名密钥；留空时每次启动随机生成（重启后需重新登录）
+    token-secret: ${APP_AUTH_TOKEN_SECRET:}
+    token-ttl-hours: ${APP_AUTH_TOKEN_TTL_HOURS:168}

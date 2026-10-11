@@ -184,6 +184,7 @@ docker compose -f docker-compose.prod.yml ps
 | `VOICE_QWEN_MODEL` | 语音模型名称 |
 | `APP_ADMIN_USERNAME` | 管理员用户名 |
 | `APP_ADMIN_PASSWORD` | 管理员密码 |
+| `APP_AUTH_TOKEN_SECRET` | 登录令牌签名密钥，32 位以上随机字符串（`openssl rand -hex 32`）；生产部署必填 |
 | `APP_MAIL_HOST` | SMTP 主机 |
 | `APP_MAIL_PORT` | SMTP 端口 |
 | `APP_MAIL_USERNAME` | SMTP 用户名 |

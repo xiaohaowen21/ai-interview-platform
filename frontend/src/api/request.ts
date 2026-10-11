@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
-import { getCurrentUserId, logoutUser } from '../utils/auth';
+import { getAuthHeaders, logoutUser } from '../utils/auth';
 
 interface Result<T = unknown> {
   code: number;
@@ -84,10 +84,10 @@ function humanizeUploadError(message?: string): string {
 }
 
 instance.interceptors.request.use((config) => {
-  const userId = getCurrentUserId();
-  if (userId) {
+  const authHeaders = getAuthHeaders();
+  if (authHeaders.Authorization) {
     config.headers = config.headers || {};
-    config.headers['X-User-Id'] = userId;
+    config.headers['Authorization'] = authHeaders.Authorization;
   }
   return config;
 });

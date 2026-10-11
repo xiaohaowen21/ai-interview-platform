@@ -1,4 +1,5 @@
 import { request } from './request';
+import { setAuthToken } from '../utils/auth';
 
 export type EmailCodePurpose = 'REGISTER' | 'RESET_PASSWORD';
 
@@ -19,6 +20,7 @@ export interface AuthResult {
   username: string;
   role: 'ADMIN' | 'USER';
   hasEmail: boolean;
+  token?: string;
 }
 
 export interface SendEmailCodePayload {
@@ -34,12 +36,16 @@ export interface ForgotPasswordResetPayload {
 }
 
 export const authApi = {
-  register(payload: RegisterPayload): Promise<AuthResult> {
-    return request.post<AuthResult>('/api/auth/register', payload);
+  async register(payload: RegisterPayload): Promise<AuthResult> {
+    const result = await request.post<AuthResult>('/api/auth/register', payload);
+    setAuthToken(result.token);
+    return result;
   },
 
-  login(payload: LoginPayload): Promise<AuthResult> {
-    return request.post<AuthResult>('/api/auth/login', payload);
+  async login(payload: LoginPayload): Promise<AuthResult> {
+    const result = await request.post<AuthResult>('/api/auth/login', payload);
+    setAuthToken(result.token);
+    return result;
   },
 
   sendEmailCode(payload: SendEmailCodePayload): Promise<void> {

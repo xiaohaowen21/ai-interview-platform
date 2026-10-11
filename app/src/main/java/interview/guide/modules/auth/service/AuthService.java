@@ -2,6 +2,7 @@ package interview.guide.modules.auth.service;
 
 import interview.guide.common.exception.BusinessException;
 import interview.guide.common.exception.ErrorCode;
+import interview.guide.common.security.AuthTokenService;
 import interview.guide.modules.auth.model.AuthResponse;
 import interview.guide.modules.auth.model.EmailVerificationCodeEntity;
 import interview.guide.modules.auth.model.EmailVerificationPurpose;
@@ -17,11 +18,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.concurrent.ThreadLocalRandom;
+import java.security.SecureRandom;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    private final AuthTokenService authTokenService;
 
     private static final int RESET_CODE_EXPIRE_MINUTES = 10;
 
@@ -148,7 +153,7 @@ public class AuthService {
     }
 
     private String generateVerificationCode() {
-        return String.valueOf(ThreadLocalRandom.current().nextInt(100000, 1000000));
+        return String.valueOf(100000 + SECURE_RANDOM.nextInt(900000));
     }
 
     private String normalizeUsername(String username) {
@@ -164,7 +169,8 @@ public class AuthService {
             entity.getId().toString(),
             entity.getUsername(),
             entity.getRole().name(),
-            entity.getEmail() != null && !entity.getEmail().isBlank()
+            entity.getEmail() != null && !entity.getEmail().isBlank(),
+            authTokenService.issue(entity.getId().toString())
         );
     }
 }
