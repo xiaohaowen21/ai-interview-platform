@@ -13,6 +13,7 @@ import {
 import ConfirmDialog from '../components/ConfirmDialog';
 import { appConfigApi } from '../api/appConfig';
 import { oralInterviewApi } from '../api/oralInterview';
+import { ApiError } from '../api/request';
 import { voiceApi } from '../api/voice';
 import {
   DEFAULT_ORAL_PERSONA_KEY,
@@ -29,6 +30,10 @@ import type {
   InterviewStreamDoneEvent,
   InterviewStreamMetaEvent,
 } from '../types/interview';
+
+/** 后端 ErrorCode.INTERVIEW_EVALUATION_IN_PROGRESS */
+const EVALUATION_IN_PROGRESS_CODE = 3008;
+const REPORT_WAIT_TIMEOUT_MS = 3 * 60 * 1000;
 
 type InterviewStage =
   | 'booting'
@@ -824,18 +829,23 @@ export default function OralInterviewPage({ sessionId, onBack, onInterviewComple
   }, []);
 
   const waitForReport = useCallback(async (sid: string) => {
-    let lastError: unknown = null;
-    for (let attempt = 0; attempt < 16; attempt += 1) {
+    // 评估在后台进行，"评估中"时继续等；其他错误只重试几次，避免反复触发评估
+    const deadline = Date.now() + REPORT_WAIT_TIMEOUT_MS;
+    let otherFailures = 0;
+    while (true) {
       try {
         return await oralInterviewApi.getReport(sid);
       } catch (exception) {
-        lastError = exception;
-        if (attempt < 15) {
-          await sleep(2500);
+        const stillEvaluating = exception instanceof ApiError && exception.code === EVALUATION_IN_PROGRESS_CODE;
+        if (!stillEvaluating) {
+          otherFailures += 1;
         }
+        if (otherFailures >= 3 || Date.now() >= deadline) {
+          throw exception;
+        }
+        await sleep(2500);
       }
     }
-    throw lastError ?? new Error('评估结果生成失败');
   }, []);
 
   const resolveCapturedText = useCallback(async () => {
