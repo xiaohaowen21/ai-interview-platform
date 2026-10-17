@@ -27,6 +27,10 @@ public class EmailVerificationCodeEntity {
     @Column(nullable = false)
     private LocalDateTime expiresAt;
 
+    /** 当前验证码已输错的次数，旧数据为 null，按 0 处理 */
+    @Column
+    private Integer failedAttempts;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
@@ -83,6 +87,14 @@ public class EmailVerificationCodeEntity {
 
     public void setExpiresAt(LocalDateTime expiresAt) {
         this.expiresAt = expiresAt;
+    }
+
+    public int getFailedAttempts() {
+        return failedAttempts == null ? 0 : failedAttempts;
+    }
+
+    public void setFailedAttempts(int failedAttempts) {
+        this.failedAttempts = failedAttempts;
     }
 
     public LocalDateTime getCreatedAt() {
