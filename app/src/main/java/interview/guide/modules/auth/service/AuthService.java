@@ -3,6 +3,7 @@ package interview.guide.modules.auth.service;
 import interview.guide.common.exception.BusinessException;
 import interview.guide.common.exception.ErrorCode;
 import interview.guide.common.security.AuthTokenService;
+import interview.guide.common.security.RequestQuotaService;
 import interview.guide.modules.auth.model.AuthResponse;
 import interview.guide.modules.auth.model.EmailVerificationCodeEntity;
 import interview.guide.modules.auth.model.EmailVerificationPurpose;
@@ -17,6 +18,7 @@ import org.springframework.mail.MailException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.security.SecureRandom;
 
@@ -29,12 +31,17 @@ public class AuthService {
     private final AuthTokenService authTokenService;
 
     private static final int RESET_CODE_EXPIRE_MINUTES = 10;
+    /** 同一个验证码最多允许输错的次数，超过后作废，需重新获取 */
+    static final int MAX_CODE_FAILED_ATTEMPTS = 5;
+    /** 同一邮箱每小时最多发送的验证码数量，配合输错上限把猜中概率压到可忽略 */
+    static final int MAX_CODES_PER_EMAIL_PER_HOUR = 5;
 
     private final UserAccountRepository userAccountRepository;
     private final EmailVerificationCodeRepository emailVerificationCodeRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthEmailService authEmailService;
     private final TurnstileService turnstileService;
+    private final RequestQuotaService requestQuotaService;
 
     public AuthResponse register(RegisterRequest request) {
         String username = normalizeUsername(request.username());
@@ -105,6 +112,11 @@ public class AuthService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "该邮箱未绑定账号"));
         }
 
+        if (!requestQuotaService.tryAcquire(
+            "email-code:" + purpose.name() + ":" + email, MAX_CODES_PER_EMAIL_PER_HOUR, Duration.ofHours(1))) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "验证码发送过于频繁，请一小时后再试");
+        }
+
         String verificationCode = generateVerificationCode();
         EmailVerificationCodeEntity codeEntity = emailVerificationCodeRepository
             .findByEmailIgnoreCaseAndPurpose(email, purpose)
@@ -113,6 +125,7 @@ public class AuthService {
         codeEntity.setPurpose(purpose);
         codeEntity.setCodeHash(passwordEncoder.encode(verificationCode));
         codeEntity.setExpiresAt(LocalDateTime.now().plusMinutes(RESET_CODE_EXPIRE_MINUTES));
+        codeEntity.setFailedAttempts(0);
 
         try {
             String username = entity != null ? entity.getUsername() : email;
@@ -147,7 +160,19 @@ public class AuthService {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "验证码已过期，请重新获取");
         }
 
-        if (!passwordEncoder.matches(rawCode, verificationCode.getCodeHash())) {
+        if (verificationCode.getFailedAttempts() >= MAX_CODE_FAILED_ATTEMPTS) {
+            emailVerificationCodeRepository.delete(verificationCode);
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "验证码错误次数过多，请重新获取");
+        }
+
+        if (rawCode == null || !passwordEncoder.matches(rawCode.trim(), verificationCode.getCodeHash())) {
+            int failedAttempts = verificationCode.getFailedAttempts() + 1;
+            if (failedAttempts >= MAX_CODE_FAILED_ATTEMPTS) {
+                emailVerificationCodeRepository.delete(verificationCode);
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "验证码错误次数过多，请重新获取");
+            }
+            verificationCode.setFailedAttempts(failedAttempts);
+            emailVerificationCodeRepository.save(verificationCode);
             throw new BusinessException(ErrorCode.BAD_REQUEST, "验证码错误");
         }
     }

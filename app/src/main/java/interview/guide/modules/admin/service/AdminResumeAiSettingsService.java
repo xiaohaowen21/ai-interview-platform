@@ -19,6 +19,12 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
@@ -47,6 +53,20 @@ public class AdminResumeAiSettingsService {
         "video/webm",
         "video/ogg"
     );
+
+    private static final Set<String> ALLOWED_IMAGE_TYPES = Set.of(
+        "image/png",
+        "image/jpeg",
+        "image/jpg",
+        "image/webp",
+        "image/gif"
+    );
+
+    private static final String MASK = "********";
+    private static final String API_KEY_REQUIRED_FOR_NEW_BASE_URL = "更换 API 地址后请重新填写 API Key，已保存的密钥不会发送到新地址";
+
+    @Value("${app.ai.allow-private-base-url:false}")
+    private boolean allowPrivateBaseUrl;
 
     @Value("${spring.ai.openai.base-url:https://dashscope.aliyuncs.com/compatible-mode}")
     private String defaultBaseUrl;
@@ -125,9 +145,16 @@ public class AdminResumeAiSettingsService {
     }
 
     public AdminResumeAiSettingsDTO updateSettings(AdminResumeAiSettingsUpdateRequest request) {
+        String baseUrl = normalizeBaseUrl(request.baseUrl());
+        String baseUrlError = validateProviderBaseUrl(baseUrl);
+        if (baseUrlError != null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, baseUrlError);
+        }
+        String apiKey = resolveApiKeyForPersist(request.apiKey(), baseUrl);
+
         AdminResumeAiSettingsEntity entity = repository.findAll().stream().findFirst().orElseGet(AdminResumeAiSettingsEntity::new);
-        entity.setBaseUrl(request.baseUrl().trim());
-        entity.setApiKey(resolveApiKeyForPersist(request.apiKey()));
+        entity.setBaseUrl(baseUrl);
+        entity.setApiKey(apiKey);
         entity.setModel(request.model().trim());
         entity.setMockInterviewUrl(request.mockInterviewUrl().trim());
         entity.setResumeAnalysisImageUrl(normalizeOptionalUrl(request.resumeAnalysisImageUrl()));
@@ -225,10 +252,21 @@ public class AdminResumeAiSettingsService {
 
     public AdminResumeAiSettingsTestResultDTO testSettings(AdminResumeAiSettingsUpdateRequest request) {
         String baseUrl = normalizeBaseUrl(request.baseUrl());
-        String apiKey = resolveApiKeyForTest(request.apiKey());
         String model = request.model() == null ? "" : request.model().trim();
+        if (baseUrl.isBlank() || model.isBlank()) {
+            return new AdminResumeAiSettingsTestResultDTO(false, "请填写完整的 API 地址、API Key 和模型名", null, 0);
+        }
 
-        if (baseUrl.isBlank() || apiKey.isBlank() || model.isBlank()) {
+        String baseUrlError = validateProviderBaseUrl(baseUrl);
+        if (baseUrlError != null) {
+            return new AdminResumeAiSettingsTestResultDTO(false, baseUrlError, null, 0);
+        }
+        if (isStoredKeyPlaceholder(request.apiKey()) && !isStoredBaseUrl(baseUrl)) {
+            return new AdminResumeAiSettingsTestResultDTO(false, API_KEY_REQUIRED_FOR_NEW_BASE_URL, null, 0);
+        }
+
+        String apiKey = resolveApiKeyForTest(request.apiKey());
+        if (apiKey.isBlank()) {
             return new AdminResumeAiSettingsTestResultDTO(false, "请填写完整的 API 地址、API Key 和模型名", null, 0);
         }
 
@@ -271,7 +309,7 @@ public class AdminResumeAiSettingsService {
         if (value.length() <= 8) {
             return "****";
         }
-        return value.substring(0, 4) + "********" + value.substring(value.length() - 4);
+        return value.substring(0, 4) + MASK + value.substring(value.length() - 4);
     }
 
     private String normalizeBaseUrl(String baseUrl) {
@@ -406,7 +444,9 @@ public class AdminResumeAiSettingsService {
         if (entity.getBaseUrl() == null || entity.getBaseUrl().isBlank()) {
             entity.setBaseUrl(defaultBaseUrl);
         }
-        if (entity.getApiKey() == null || entity.getApiKey().isBlank()) {
+        if ((entity.getApiKey() == null || entity.getApiKey().isBlank())
+            && normalizeBaseUrl(entity.getBaseUrl()).equalsIgnoreCase(normalizeBaseUrl(defaultBaseUrl))) {
+            // 只有地址仍是默认地址时才补上默认密钥，避免把环境变量里的密钥发给管理员填写的其他地址
             entity.setApiKey(defaultApiKey);
         }
         if (entity.getModel() == null || entity.getModel().isBlank()) {
@@ -452,7 +492,8 @@ public class AdminResumeAiSettingsService {
         }
 
         String contentType = file.getContentType() == null ? "" : file.getContentType().toLowerCase(Locale.ROOT);
-        if (!contentType.startsWith("image/")) {
+        // 不能只判断 image/ 前缀：SVG 可以内嵌脚本，经同源的 /api/public/storage 打开即是存储型 XSS
+        if (!ALLOWED_IMAGE_TYPES.contains(contentType)) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "仅支持 PNG/JPG/WEBP/GIF 图片");
         }
 
@@ -478,23 +519,94 @@ public class AdminResumeAiSettingsService {
         );
     }
 
+    /** 调用前须已确认 baseUrl 与已保存的地址一致，否则不能沿用已保存的密钥 */
     private String resolveApiKeyForTest(String rawApiKey) {
-        String candidate = rawApiKey == null ? "" : rawApiKey.trim();
-        if (candidate.isBlank()) {
+        if (isStoredKeyPlaceholder(rawApiKey)) {
             return getRuntimeSettings().apiKey();
         }
-        if (candidate.contains("********")) {
+        return rawApiKey.trim();
+    }
+
+    private String resolveApiKeyForPersist(String rawApiKey, String baseUrl) {
+        String candidate = rawApiKey == null ? "" : rawApiKey.trim();
+        if (candidate.contains(MASK)) {
+            if (!isStoredBaseUrl(baseUrl)) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, API_KEY_REQUIRED_FOR_NEW_BASE_URL);
+            }
             return getRuntimeSettings().apiKey();
         }
         return candidate;
     }
 
-    private String resolveApiKeyForPersist(String rawApiKey) {
+    /** 前端回传空值或脱敏值，表示“沿用已保存的密钥” */
+    private boolean isStoredKeyPlaceholder(String rawApiKey) {
         String candidate = rawApiKey == null ? "" : rawApiKey.trim();
-        if (candidate.contains("********")) {
-            return getRuntimeSettings().apiKey();
+        return candidate.isBlank() || candidate.contains(MASK);
+    }
+
+    /**
+     * 已保存的密钥只能发往它原本所属的地址，否则改个 API 地址就能把生产密钥发到任意服务器。
+     */
+    private boolean isStoredBaseUrl(String baseUrl) {
+        return normalizeBaseUrl(getRuntimeSettings().baseUrl()).equalsIgnoreCase(normalizeBaseUrl(baseUrl));
+    }
+
+    /**
+     * 校验 AI 服务地址：只允许 http/https，且默认不允许指向本机、内网或云元数据地址，
+     * 防止借“测试连接”探测或攻击内部服务（如 minio、redis）。
+     *
+     * @return 不合法时返回提示信息，合法时返回 null
+     */
+    String validateProviderBaseUrl(String baseUrl) {
+        URI uri;
+        try {
+            uri = new URI(baseUrl);
+        } catch (URISyntaxException exception) {
+            return "API 地址格式不正确";
         }
-        return candidate;
+        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+        if (!scheme.equals("http") && !scheme.equals("https")) {
+            return "API 地址只支持 http 或 https";
+        }
+        String host = uri.getHost();
+        if (host == null || host.isBlank()) {
+            return "API 地址缺少主机名";
+        }
+        if (uri.getUserInfo() != null) {
+            return "API 地址不能包含用户名或密码";
+        }
+        if (allowPrivateBaseUrl) {
+            return null;
+        }
+        try {
+            for (InetAddress address : InetAddress.getAllByName(host)) {
+                if (isInternalAddress(address)) {
+                    return "API 地址不能指向本机或内网地址；如确需使用内网模型服务，请设置 APP_AI_ALLOW_PRIVATE_BASE_URL=true";
+                }
+            }
+        } catch (UnknownHostException exception) {
+            return "无法解析 API 地址的主机名";
+        }
+        return null;
+    }
+
+    private static boolean isInternalAddress(InetAddress address) {
+        if (address.isAnyLocalAddress() || address.isLoopbackAddress() || address.isLinkLocalAddress()
+            || address.isSiteLocalAddress() || address.isMulticastAddress()) {
+            return true;
+        }
+        byte[] bytes = address.getAddress();
+        if (address instanceof Inet4Address) {
+            int first = bytes[0] & 0xFF;
+            int second = bytes[1] & 0xFF;
+            // 100.64.0.0/10 运营商级 NAT，0.0.0.0/8
+            return (first == 100 && second >= 64 && second <= 127) || first == 0;
+        }
+        if (address instanceof Inet6Address) {
+            // fc00::/7 唯一本地地址
+            return (bytes[0] & 0xFE) == 0xFC;
+        }
+        return false;
     }
 
     public record ResumeAiRuntimeSettings(String baseUrl, String apiKey, String model) {

@@ -24,20 +24,21 @@ public class AuthController {
 
     private final AuthService authService;
 
+    // 认证接口按分钟限流：按秒计的窗口挡不住暴力破解密码和验证码
     @PostMapping("/api/auth/register")
-    @RateLimit(dimensions = {RateLimit.Dimension.GLOBAL, RateLimit.Dimension.IP}, count = 10)
+    @RateLimit(dimensions = {RateLimit.Dimension.IP}, count = 10, timeUnit = RateLimit.TimeUnit.MINUTES)
     public Result<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         return Result.success(authService.register(request));
     }
 
     @PostMapping(value = "/api/auth/login", consumes = MediaType.APPLICATION_JSON_VALUE)
-    @RateLimit(dimensions = {RateLimit.Dimension.GLOBAL, RateLimit.Dimension.IP}, count = 20)
+    @RateLimit(dimensions = {RateLimit.Dimension.IP}, count = 10, timeUnit = RateLimit.TimeUnit.MINUTES)
     public Result<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return Result.success(authService.login(request));
     }
 
     @PostMapping(value = "/api/auth/login", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    @RateLimit(dimensions = {RateLimit.Dimension.GLOBAL, RateLimit.Dimension.IP}, count = 20)
+    @RateLimit(dimensions = {RateLimit.Dimension.IP}, count = 10, timeUnit = RateLimit.TimeUnit.MINUTES)
     public Result<AuthResponse> loginByForm(
         @RequestParam(value = "username", required = false) String username,
         @RequestParam(value = "password", required = false) String password
@@ -46,14 +47,14 @@ public class AuthController {
     }
 
     @PostMapping("/api/auth/forgot-password/send-code")
-    @RateLimit(dimensions = {RateLimit.Dimension.GLOBAL, RateLimit.Dimension.IP}, count = 10)
+    @RateLimit(dimensions = {RateLimit.Dimension.IP}, count = 5, timeUnit = RateLimit.TimeUnit.MINUTES)
     public Result<Void> sendEmailCode(@Valid @RequestBody SendEmailCodeRequest request) {
         authService.sendEmailCode(request.email(), request.purpose(), request.turnstileToken());
         return Result.success();
     }
 
     @PostMapping("/api/auth/forgot-password/reset")
-    @RateLimit(dimensions = {RateLimit.Dimension.GLOBAL, RateLimit.Dimension.IP}, count = 10)
+    @RateLimit(dimensions = {RateLimit.Dimension.IP}, count = 10, timeUnit = RateLimit.TimeUnit.MINUTES)
     public Result<Void> resetPassword(@Valid @RequestBody ForgotPasswordResetRequest request) {
         authService.resetPasswordByEmail(request);
         return Result.success();
