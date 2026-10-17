@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.*;
 import org.redisson.api.options.KeysScanOptions;
+import org.redisson.api.stream.AutoClaimResult;
 import org.redisson.api.stream.StreamAddArgs;
 import org.redisson.api.stream.StreamCreateGroupArgs;
 import org.redisson.api.stream.StreamMessageId;
@@ -340,6 +341,32 @@ public class RedisService {
         return stream.readGroup(groupName, consumerName,
             StreamReadGroupArgs.neverDelivered().count(count));
     }
+
+    /**
+     * 认领空闲超过指定时长的待确认消息（XAUTOCLAIM）。
+     * 用于接管处理中途崩溃、重启的消费者遗留在 PEL 中的消息。
+     *
+     * @param minIdleMs 消息至少空闲多久才会被认领（毫秒）
+     * @return 认领到的消息，以及已被裁剪、只剩 ID 的消息
+     */
+    public StreamClaimResult streamClaimIdle(
+            String streamKey, String groupName, String consumerName, long minIdleMs, int count) {
+        RStream<String, String> stream = redissonClient.getStream(streamKey, StringCodec.INSTANCE);
+        AutoClaimResult<String, String> result = stream.autoClaim(
+            groupName, consumerName, minIdleMs, TimeUnit.MILLISECONDS, StreamMessageId.MIN, count);
+        if (result == null) {
+            return new StreamClaimResult(Map.of(), List.of());
+        }
+        return new StreamClaimResult(
+            result.getMessages() == null ? Map.of() : result.getMessages(),
+            result.getDeletedIds() == null ? List.of() : result.getDeletedIds()
+        );
+    }
+
+    public record StreamClaimResult(
+        Map<StreamMessageId, Map<String, String>> messages,
+        List<StreamMessageId> deletedIds
+    ) {}
 
     /**
      * 确认消息已处理
