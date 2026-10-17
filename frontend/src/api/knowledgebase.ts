@@ -1,5 +1,6 @@
 import {getErrorMessage, request} from './request';
 import axios from 'axios';
+import { getAuthHeaders } from '../utils/auth';
 
 const API_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:8080';
 
@@ -81,6 +82,7 @@ export const knowledgeBaseApi = {
     async downloadKnowledgeBase(id: number): Promise<Blob> {
         const response = await axios.get(`${API_BASE_URL}/api/knowledgebase/${id}/download`, {
             responseType: 'blob',
+            headers: getAuthHeaders(),
         });
         return response.data;
     },
@@ -179,6 +181,7 @@ export const knowledgeBaseApi = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeaders(),
         },
         body: JSON.stringify(req),
       });
