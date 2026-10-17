@@ -1,5 +1,5 @@
 import { request } from './request';
-import { getCurrentUserId } from '../utils/auth';
+import { getAuthHeaders } from '../utils/auth';
 import type {
   CreateInterviewRequest,
   CurrentQuestionResponse,
@@ -57,10 +57,7 @@ export const interviewApi = {
       Accept: 'application/x-ndjson',
     };
 
-    const userId = getCurrentUserId();
-    if (userId) {
-      headers['X-User-Id'] = userId;
-    }
+    Object.assign(headers, getAuthHeaders());
 
     const response = await fetch(`${getApiBaseUrl()}/api/interview/sessions/${req.sessionId}/answers/stream`, {
       method: 'POST',

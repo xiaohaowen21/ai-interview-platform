@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
-import { getCurrentUserId, logoutUser } from '../utils/auth';
+import { getAuthHeaders, logoutUser } from '../utils/auth';
 
 interface Result<T = unknown> {
   code: number;
@@ -84,10 +84,10 @@ function humanizeUploadError(message?: string): string {
 }
 
 instance.interceptors.request.use((config) => {
-  const userId = getCurrentUserId();
-  if (userId) {
+  const authHeaders = getAuthHeaders();
+  if (authHeaders.Authorization) {
     config.headers = config.headers || {};
-    config.headers['X-User-Id'] = userId;
+    config.headers['Authorization'] = authHeaders.Authorization;
   }
   return config;
 });
@@ -100,6 +100,10 @@ instance.interceptors.response.use(
       if (result.code === 200) {
         response.data = result.data;
         return response;
+      }
+      // 业务错误统一以 HTTP 200 返回；带着令牌却收到 401，说明令牌已过期或失效
+      if (result.code === 401 && response.config.headers?.['Authorization']) {
+        logoutUser();
       }
       return Promise.reject(new Error(translateMessage(result.message)));
     }
