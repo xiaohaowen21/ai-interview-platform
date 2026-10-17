@@ -11,6 +11,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AuthTokenTest {
 
@@ -47,6 +48,15 @@ class AuthTokenTest {
         ReflectionTestUtils.setField(other, "tokenTtlHours", 1L);
         other.initialize();
         assertThat(tokenService.verify(other.issue("42"))).isEmpty();
+    }
+
+    @Test
+    void placeholderSecretFromEnvExampleIsRefused() {
+        AuthTokenService placeholder = new AuthTokenService();
+        ReflectionTestUtils.setField(placeholder, "configuredSecret", "change_me_random_secret");
+        ReflectionTestUtils.setField(placeholder, "tokenTtlHours", 1L);
+
+        assertThatThrownBy(placeholder::initialize).isInstanceOf(IllegalStateException.class);
     }
 
     @Test

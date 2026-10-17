@@ -27,6 +27,8 @@ public class AuthTokenService {
     private static final String HMAC_ALGORITHM = "HmacSHA256";
     private static final Base64.Encoder ENCODER = Base64.getUrlEncoder().withoutPadding();
     private static final Base64.Decoder DECODER = Base64.getUrlDecoder();
+    private static final String PLACEHOLDER_SECRET = "change_me_random_secret";
+    private static final int MIN_SECRET_LENGTH = 32;
 
     @Value("${app.auth.token-secret:}")
     private String configuredSecret;
@@ -44,7 +46,15 @@ public class AuthTokenService {
             secret = generated;
             log.warn("APP_AUTH_TOKEN_SECRET 未配置，已生成临时密钥：服务重启后所有用户需要重新登录，多实例部署时请务必配置固定密钥。");
         } else {
-            secret = configuredSecret.trim().getBytes(StandardCharsets.UTF_8);
+            String trimmed = configuredSecret.trim();
+            if (PLACEHOLDER_SECRET.equals(trimmed)) {
+                // 示例值是公开的，用它签名等于任何人都能伪造令牌
+                throw new IllegalStateException("APP_AUTH_TOKEN_SECRET 仍是 .env.example 中的示例值，请改成随机字符串（如 openssl rand -hex 32）");
+            }
+            if (trimmed.length() < MIN_SECRET_LENGTH) {
+                log.warn("APP_AUTH_TOKEN_SECRET 长度不足 {} 个字符，令牌容易被暴力破解，建议使用 openssl rand -hex 32 生成。", MIN_SECRET_LENGTH);
+            }
+            secret = trimmed.getBytes(StandardCharsets.UTF_8);
         }
         if (tokenTtlHours <= 0) {
             tokenTtlHours = 168;
