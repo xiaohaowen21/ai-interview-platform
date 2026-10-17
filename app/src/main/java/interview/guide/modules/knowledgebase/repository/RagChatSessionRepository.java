@@ -29,8 +29,13 @@ public interface RagChatSessionRepository extends JpaRepository<RagChatSessionEn
     /**
      * 获取所有会话（按置顶状态和更新时间排序：置顶的在前，然后按更新时间倒序）
      */
-    @Query("SELECT s FROM RagChatSessionEntity s ORDER BY s.isPinned DESC, s.updatedAt DESC")
-    List<RagChatSessionEntity> findAllOrderByPinnedAndUpdatedAtDesc();
+    @Query("SELECT s FROM RagChatSessionEntity s WHERE s.userId = :userId ORDER BY s.isPinned DESC, s.updatedAt DESC")
+    List<RagChatSessionEntity> findAllOrderByPinnedAndUpdatedAtDesc(@Param("userId") String userId);
+
+    /**
+     * 按ID查找当前用户的会话
+     */
+    Optional<RagChatSessionEntity> findByIdAndUserId(Long id, String userId);
 
     /**
      * 根据知识库ID查找相关会话
@@ -50,4 +55,10 @@ public interface RagChatSessionRepository extends JpaRepository<RagChatSessionEn
      */
     @Query("SELECT s FROM RagChatSessionEntity s LEFT JOIN FETCH s.knowledgeBases WHERE s.id = :id")
     Optional<RagChatSessionEntity> findByIdWithKnowledgeBases(@Param("id") Long id);
+
+    /**
+     * 获取当前用户的会话（带知识库，不带消息）
+     */
+    @Query("SELECT s FROM RagChatSessionEntity s LEFT JOIN FETCH s.knowledgeBases WHERE s.id = :id AND s.userId = :userId")
+    Optional<RagChatSessionEntity> findByIdAndUserIdWithKnowledgeBases(@Param("id") Long id, @Param("userId") String userId);
 }

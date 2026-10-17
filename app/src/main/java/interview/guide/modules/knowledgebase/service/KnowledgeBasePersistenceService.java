@@ -55,10 +55,11 @@ public class KnowledgeBasePersistenceService {
      * 保存新知识库元数据到数据库
      */
     @Transactional(rollbackFor = Exception.class)
-    public KnowledgeBaseEntity saveKnowledgeBase(MultipartFile file, String name, String category,
+    public KnowledgeBaseEntity saveKnowledgeBase(String userId, MultipartFile file, String name, String category,
                                                   String storageKey, String storageUrl, String fileHash) {
         try {
             KnowledgeBaseEntity kb = new KnowledgeBaseEntity();
+            kb.setUserId(userId);
             kb.setFileHash(fileHash);
             kb.setName(name != null && !name.trim().isEmpty() ? name : extractNameFromFilename(file.getOriginalFilename()));
             kb.setCategory(category != null && !category.trim().isEmpty() ? category.trim() : null);
