@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -71,4 +72,24 @@ public interface InterviewSessionRepository extends JpaRepository<InterviewSessi
         Long resumeId,
         interview.guide.modules.interview.model.InterviewMode mode
     );
+
+    /**
+     * 按简历分组统计面试次数（只计数，不加载会话内容）
+     */
+    @Query("""
+        SELECT s.resume.id AS resumeId, COUNT(s) AS sessionCount
+        FROM InterviewSessionEntity s
+        WHERE s.resume.id IN :resumeIds AND s.mode = :mode
+        GROUP BY s.resume.id
+        """)
+    List<ResumeSessionCount> countByResumeIdsAndMode(
+        @Param("resumeIds") Collection<Long> resumeIds,
+        @Param("mode") interview.guide.modules.interview.model.InterviewMode mode
+    );
+
+    interface ResumeSessionCount {
+        Long getResumeId();
+
+        Long getSessionCount();
+    }
 }

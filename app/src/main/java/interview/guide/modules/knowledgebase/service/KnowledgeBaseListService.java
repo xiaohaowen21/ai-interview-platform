@@ -16,8 +16,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 知识库查询服务
@@ -36,19 +38,20 @@ public class KnowledgeBaseListService {
     /**
      * 获取知识库列表（支持状态过滤和排序）
      * 
+     * @param userId 当前用户ID
      * @param vectorStatus 向量化状态，null 表示不过滤
      * @param sortBy 排序字段，null 或 "time" 表示按时间排序
      * @return 知识库列表
      */
-    public List<KnowledgeBaseListItemDTO> listKnowledgeBases(VectorStatus vectorStatus, String sortBy) {
+    public List<KnowledgeBaseListItemDTO> listKnowledgeBases(String userId, VectorStatus vectorStatus, String sortBy) {
         List<KnowledgeBaseEntity> entities;
         
         // 如果指定了状态，按状态过滤
         if (vectorStatus != null) {
-            entities = knowledgeBaseRepository.findByVectorStatusOrderByUploadedAtDesc(vectorStatus);
+            entities = knowledgeBaseRepository.findByUserIdAndVectorStatusOrderByUploadedAtDesc(userId, vectorStatus);
         } else {
-            // 否则获取所有知识库
-            entities = knowledgeBaseRepository.findAllByOrderByUploadedAtDesc();
+            // 否则获取该用户的所有知识库
+            entities = knowledgeBaseRepository.findByUserIdOrderByUploadedAtDesc(userId);
         }
         
         // 如果指定了排序字段，在内存中排序
@@ -60,36 +63,35 @@ public class KnowledgeBaseListService {
     }
 
     /**
-     * 获取所有知识库列表（保持向后兼容）
+     * 根据ID获取当前用户的知识库详情
      */
-    public List<KnowledgeBaseListItemDTO> listKnowledgeBases() {
-        return listKnowledgeBases(null, null);
-    }
-
-    /**
-     * 按向量化状态获取知识库列表（保持向后兼容）
-     */
-    public List<KnowledgeBaseListItemDTO> listKnowledgeBasesByStatus(VectorStatus vectorStatus) {
-        return listKnowledgeBases(vectorStatus, null);
-    }
-
-    /**
-     * 根据ID获取知识库详情
-     */
-    public Optional<KnowledgeBaseListItemDTO> getKnowledgeBase(Long id) {
-        return knowledgeBaseRepository.findById(id)
+    public Optional<KnowledgeBaseListItemDTO> getKnowledgeBase(String userId, Long id) {
+        return knowledgeBaseRepository.findByIdAndUserId(id, userId)
             .map(knowledgeBaseMapper::toListItemDTO);
     }
 
     /**
-     * 根据ID获取知识库实体（用于删除等操作）
+     * 获取当前用户的知识库实体，不存在或不属于该用户时抛出“知识库不存在”
      */
-    public Optional<KnowledgeBaseEntity> getKnowledgeBaseEntity(Long id) {
-        return knowledgeBaseRepository.findById(id);
+    public KnowledgeBaseEntity requireOwnedKnowledgeBase(String userId, Long id) {
+        return knowledgeBaseRepository.findByIdAndUserId(id, userId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.KNOWLEDGE_BASE_NOT_FOUND, "知识库不存在"));
     }
 
     /**
-     * 根据ID列表获取知识库名称列表
+     * 校验知识库ID全部属于当前用户，返回对应实体
+     */
+    public List<KnowledgeBaseEntity> requireOwnedKnowledgeBases(String userId, List<Long> ids) {
+        Set<Long> uniqueIds = new HashSet<>(ids);
+        List<KnowledgeBaseEntity> owned = knowledgeBaseRepository.findByIdInAndUserId(uniqueIds, userId);
+        if (owned.size() != uniqueIds.size()) {
+            throw new BusinessException(ErrorCode.KNOWLEDGE_BASE_NOT_FOUND, "部分知识库不存在");
+        }
+        return owned;
+    }
+
+    /**
+     * 根据ID列表获取知识库名称列表（调用方需先校验归属）
      */
     public List<String> getKnowledgeBaseNames(List<Long> ids) {
         return ids.stream()
@@ -104,19 +106,19 @@ public class KnowledgeBaseListService {
     /**
      * 获取所有分类
      */
-    public List<String> getAllCategories() {
-        return knowledgeBaseRepository.findAllCategories();
+    public List<String> getAllCategories(String userId) {
+        return knowledgeBaseRepository.findAllCategories(userId);
     }
 
     /**
      * 根据分类获取知识库列表
      */
-    public List<KnowledgeBaseListItemDTO> listByCategory(String category) {
+    public List<KnowledgeBaseListItemDTO> listByCategory(String userId, String category) {
         List<KnowledgeBaseEntity> entities;
         if (category == null || category.isBlank()) {
-            entities = knowledgeBaseRepository.findByCategoryIsNullOrderByUploadedAtDesc();
+            entities = knowledgeBaseRepository.findByUserIdAndCategoryIsNullOrderByUploadedAtDesc(userId);
         } else {
-            entities = knowledgeBaseRepository.findByCategoryOrderByUploadedAtDesc(category);
+            entities = knowledgeBaseRepository.findByUserIdAndCategoryOrderByUploadedAtDesc(userId, category);
         }
         return knowledgeBaseMapper.toListItemDTOList(entities);
     }
@@ -125,9 +127,8 @@ public class KnowledgeBaseListService {
      * 更新知识库分类
      */
     @Transactional
-    public void updateCategory(Long id, String category) {
-        KnowledgeBaseEntity entity = knowledgeBaseRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("知识库不存在"));
+    public void updateCategory(String userId, Long id, String category) {
+        KnowledgeBaseEntity entity = requireOwnedKnowledgeBase(userId, id);
         entity.setCategory(category != null && !category.isBlank() ? category : null);
         knowledgeBaseRepository.save(entity);
         log.info("更新知识库分类: id={}, category={}", id, category);
@@ -138,23 +139,16 @@ public class KnowledgeBaseListService {
     /**
      * 按关键词搜索知识库
      */
-    public List<KnowledgeBaseListItemDTO> search(String keyword) {
+    public List<KnowledgeBaseListItemDTO> search(String userId, String keyword) {
         if (keyword == null || keyword.isBlank()) {
-            return listKnowledgeBases();
+            return listKnowledgeBases(userId, null, null);
         }
         return knowledgeBaseMapper.toListItemDTOList(
-            knowledgeBaseRepository.searchByKeyword(keyword.trim())
+            knowledgeBaseRepository.searchByKeyword(userId, keyword.trim())
         );
     }
 
     // ========== 排序功能 ==========
-
-    /**
-     * 按指定字段排序获取知识库列表（保持向后兼容）
-     */
-    public List<KnowledgeBaseListItemDTO> listSorted(String sortBy) {
-        return listKnowledgeBases(null, sortBy);
-    }
 
     /**
      * 在内存中对实体列表排序
@@ -180,40 +174,29 @@ public class KnowledgeBaseListService {
      * 获取知识库统计信息
      * 总提问次数从用户消息数统计，确保多知识库提问只算一次
      */
-    public KnowledgeBaseStatsDTO getStatistics() {
+    public KnowledgeBaseStatsDTO getStatistics(String userId) {
         return new KnowledgeBaseStatsDTO(
-            knowledgeBaseRepository.count(),
-            ragChatMessageRepository.countByType(MessageType.USER),  // 真正的提问次数
-            knowledgeBaseRepository.sumAccessCount(),
-            knowledgeBaseRepository.countByVectorStatus(VectorStatus.COMPLETED),
-            knowledgeBaseRepository.countByVectorStatus(VectorStatus.PROCESSING)
+            knowledgeBaseRepository.countByUserId(userId),
+            ragChatMessageRepository.countBySessionUserIdAndType(userId, MessageType.USER),  // 真正的提问次数
+            knowledgeBaseRepository.sumAccessCount(userId),
+            knowledgeBaseRepository.countByUserIdAndVectorStatus(userId, VectorStatus.COMPLETED),
+            knowledgeBaseRepository.countByUserIdAndVectorStatus(userId, VectorStatus.PROCESSING)
         );
     }
 
     // ========== 下载功能 ==========
 
     /**
-     * 下载知识库文件
+     * 下载知识库文件（调用方需先通过 requireOwnedKnowledgeBase 校验归属）
      */
-    public byte[] downloadFile(Long id) {
-        KnowledgeBaseEntity entity = knowledgeBaseRepository.findById(id)
-            .orElseThrow(() -> new BusinessException(ErrorCode.KNOWLEDGE_BASE_NOT_FOUND, "知识库不存在"));
-
+    public byte[] downloadFile(KnowledgeBaseEntity entity) {
         String storageKey = entity.getStorageKey();
         if (storageKey == null || storageKey.isBlank()) {
             throw new BusinessException(ErrorCode.STORAGE_DOWNLOAD_FAILED, "文件存储信息不存在");
         }
 
-        log.info("下载知识库文件: id={}, filename={}", id, entity.getOriginalFilename());
+        log.info("下载知识库文件: id={}, filename={}", entity.getId(), entity.getOriginalFilename());
         return fileStorageService.downloadFile(storageKey);
-    }
-
-    /**
-     * 获取知识库文件信息（用于下载）
-     */
-    public KnowledgeBaseEntity getEntityForDownload(Long id) {
-        return knowledgeBaseRepository.findById(id)
-            .orElseThrow(() -> new BusinessException(ErrorCode.KNOWLEDGE_BASE_NOT_FOUND, "知识库不存在"));
     }
 }
 

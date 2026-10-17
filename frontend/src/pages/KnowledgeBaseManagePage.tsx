@@ -278,7 +278,7 @@ export default function KnowledgeBaseManagePage({ onUpload, onChat }: KnowledgeB
   return (
     <div className="max-w-7xl mx-auto">
       {/* 页面标题 */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div>
             <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
             <Database className="w-7 h-7 text-primary-500" />
@@ -286,17 +286,17 @@ export default function KnowledgeBaseManagePage({ onUpload, onChat }: KnowledgeB
           </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-1">管理您的知识库文件，查看使用统计</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={onUpload}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+            className="flex items-center gap-2 whitespace-nowrap px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
           >
             <Upload className="w-4 h-4" />
             上传知识库
           </button>
           <button
             onClick={onChat}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+            className="flex items-center gap-2 whitespace-nowrap px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
           >
             <MessageSquare className="w-4 h-4" />
             问答助手
@@ -405,7 +405,8 @@ export default function KnowledgeBaseManagePage({ onUpload, onChat }: KnowledgeB
             </button>
           </div>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px] whitespace-nowrap">
               <thead className="bg-slate-50 dark:bg-slate-700 border-b border-slate-100 dark:border-slate-600">
               <tr>
                   <th className="text-left px-6 py-4 text-sm font-medium text-slate-600 dark:text-slate-300">
@@ -575,6 +576,7 @@ export default function KnowledgeBaseManagePage({ onUpload, onChat }: KnowledgeB
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

@@ -92,6 +92,14 @@ instance.interceptors.request.use((config) => {
   return config;
 });
 
+/** 业务错误，带着后端返回的 code，方便调用方区分"稍后再试"之类的状态。 */
+export class ApiError extends Error {
+  constructor(message: string, readonly code: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 instance.interceptors.response.use(
   (response) => {
     const result = response.data as Result;
@@ -105,7 +113,7 @@ instance.interceptors.response.use(
       if (result.code === 401 && response.config.headers?.['Authorization']) {
         logoutUser();
       }
-      return Promise.reject(new Error(translateMessage(result.message)));
+      return Promise.reject(new ApiError(translateMessage(result.message), result.code));
     }
 
     return response;
@@ -128,7 +136,7 @@ instance.interceptors.response.use(
         const nextMessage = isUpload
           ? humanizeUploadError(result.message)
           : translateMessage(result.message);
-        return Promise.reject(new Error(nextMessage));
+        return Promise.reject(new ApiError(nextMessage, result.code));
       }
 
       return Promise.reject(new Error(isUpload ? '上传失败，请重试。' : '请求失败，请重试。'));

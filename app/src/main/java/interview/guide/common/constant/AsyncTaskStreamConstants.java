@@ -44,6 +44,17 @@ public final class AsyncTaskStreamConstants {
      */
     public static final int STREAM_MAX_LEN = 1000;
 
+    /**
+     * 待确认消息空闲超过该时长即视为处理者已退出，可被其他消费者认领（毫秒）。
+     * 需大于单个任务的最长处理时间，否则仍在处理的任务会被重复执行。
+     */
+    public static final long STALLED_MESSAGE_IDLE_MS = 15 * 60 * 1000L;
+
+    /**
+     * 检查待确认消息的间隔（毫秒）
+     */
+    public static final long RECLAIM_INTERVAL_MS = 60 * 1000L;
+
     // ========== 知识库向量化 Stream 配置 ==========
 
     /**

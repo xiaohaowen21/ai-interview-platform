@@ -1,6 +1,7 @@
 package interview.guide.modules.knowledgebase;
 
 import interview.guide.common.result.Result;
+import interview.guide.common.util.UserIdUtil;
 import interview.guide.modules.knowledgebase.model.RagChatDTO.*;
 import interview.guide.modules.knowledgebase.service.RagChatSessionService;
 import jakarta.validation.Valid;
@@ -15,6 +16,7 @@ import java.util.List;
 
 /**
  * RAG 聊天控制器
+ * 所有接口都要求登录，会话只对创建者本人可见
  */
 @Slf4j
 @RestController
@@ -27,16 +29,19 @@ public class RagChatController {
      * 创建新会话
      */
     @PostMapping("/api/rag-chat/sessions")
-    public Result<SessionDTO> createSession(@Valid @RequestBody CreateSessionRequest request) {
-        return Result.success(sessionService.createSession(request));
+    public Result<SessionDTO> createSession(
+            @Valid @RequestBody CreateSessionRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        return Result.success(sessionService.createSession(UserIdUtil.requireUserId(userId), request));
     }
 
     /**
      * 获取会话列表
      */
     @GetMapping("/api/rag-chat/sessions")
-    public Result<List<SessionListItemDTO>> listSessions() {
-        return Result.success(sessionService.listSessions());
+    public Result<List<SessionListItemDTO>> listSessions(
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        return Result.success(sessionService.listSessions(UserIdUtil.requireUserId(userId)));
     }
 
     /**
@@ -44,8 +49,10 @@ public class RagChatController {
      * GET /api/rag-chat/sessions/{sessionId}
      */
     @GetMapping("/api/rag-chat/sessions/{sessionId}")
-    public Result<SessionDetailDTO> getSessionDetail(@PathVariable Long sessionId) {
-        return Result.success(sessionService.getSessionDetail(sessionId));
+    public Result<SessionDetailDTO> getSessionDetail(
+            @PathVariable Long sessionId,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        return Result.success(sessionService.getSessionDetail(UserIdUtil.requireUserId(userId), sessionId));
     }
 
     /**
@@ -54,8 +61,9 @@ public class RagChatController {
     @PutMapping("/api/rag-chat/sessions/{sessionId}/title")
     public Result<Void> updateSessionTitle(
             @PathVariable Long sessionId,
-            @Valid @RequestBody UpdateTitleRequest request) {
-        sessionService.updateSessionTitle(sessionId, request.title());
+            @Valid @RequestBody UpdateTitleRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        sessionService.updateSessionTitle(UserIdUtil.requireUserId(userId), sessionId, request.title());
         return Result.success(null);
     }
 
@@ -64,8 +72,10 @@ public class RagChatController {
      * PUT /api/rag-chat/sessions/{sessionId}/pin
      */
     @PutMapping("/api/rag-chat/sessions/{sessionId}/pin")
-    public Result<Void> togglePin(@PathVariable Long sessionId) {
-        sessionService.togglePin(sessionId);
+    public Result<Void> togglePin(
+            @PathVariable Long sessionId,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        sessionService.togglePin(UserIdUtil.requireUserId(userId), sessionId);
         return Result.success(null);
     }
 
@@ -75,8 +85,9 @@ public class RagChatController {
     @PutMapping("/api/rag-chat/sessions/{sessionId}/knowledge-bases")
     public Result<Void> updateSessionKnowledgeBases(
             @PathVariable Long sessionId,
-            @Valid @RequestBody UpdateKnowledgeBasesRequest request) {
-        sessionService.updateSessionKnowledgeBases(sessionId, request.knowledgeBaseIds());
+            @Valid @RequestBody UpdateKnowledgeBasesRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        sessionService.updateSessionKnowledgeBases(UserIdUtil.requireUserId(userId), sessionId, request.knowledgeBaseIds());
         return Result.success(null);
     }
 
@@ -85,8 +96,10 @@ public class RagChatController {
      * DELETE /api/rag-chat/sessions/{sessionId}
      */
     @DeleteMapping("/api/rag-chat/sessions/{sessionId}")
-    public Result<Void> deleteSession(@PathVariable Long sessionId) {
-        sessionService.deleteSession(sessionId);
+    public Result<Void> deleteSession(
+            @PathVariable Long sessionId,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        sessionService.deleteSession(UserIdUtil.requireUserId(userId), sessionId);
         return Result.success(null);
     }
 
@@ -101,18 +114,20 @@ public class RagChatController {
                  produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> sendMessageStream(
             @PathVariable Long sessionId,
-            @Valid @RequestBody SendMessageRequest request) {
+            @Valid @RequestBody SendMessageRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        String uid = UserIdUtil.requireUserId(userId);
 
         log.info("收到 RAG 聊天流式请求: sessionId={}, question={}, 线程: {} (虚拟线程: {})",
             sessionId, request.question(), Thread.currentThread(), Thread.currentThread().isVirtual());
 
         // 1. 准备消息（保存用户消息，创建 AI 消息占位）
-        Long messageId = sessionService.prepareStreamMessage(sessionId, request.question());
+        Long messageId = sessionService.prepareStreamMessage(uid, sessionId, request.question());
 
         // 2. 获取流式响应
         StringBuilder fullContent = new StringBuilder();
 
-        return sessionService.getStreamAnswer(sessionId, request.question())
+        return sessionService.getStreamAnswer(uid, sessionId, request.question())
             .doOnNext(fullContent::append)
             // 使用 ServerSentEvent 包装，转义换行符避免破坏 SSE 格式
             .map(chunk -> ServerSentEvent.<String>builder()

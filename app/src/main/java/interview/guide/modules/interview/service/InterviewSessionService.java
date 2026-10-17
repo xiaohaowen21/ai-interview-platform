@@ -44,7 +44,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class InterviewSessionService {
 
-    private static final int DEFAULT_ORAL_QUESTION_COUNT = 8;
+    private static final int MIN_QUESTION_COUNT = 1;
+    private static final int MAX_QUESTION_COUNT = 20;
     private static final Set<String> GIVE_UP_ANSWER_TOKENS = Set.of(
         "不知道", "不清楚", "不太清楚", "不会", "没学过", "忘了", "忘记了", "不太会",
         "不太懂", "不会做", "答不上来", "答不出来", "没思路", "跳过", "不了解",
@@ -61,14 +62,28 @@ public class InterviewSessionService {
     private final InterviewDialogueAiService dialogueAiService;
 
     public InterviewSessionDTO createSession(String userId, CreateInterviewRequest request) {
-        if (request.resumeId() != null) {
-            requireResumeOwner(userId, request.resumeId());
+        if (request.resumeId() == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "简历 ID 不能为空");
+        }
+        if (request.questionCount() < MIN_QUESTION_COUNT || request.questionCount() > MAX_QUESTION_COUNT) {
+            throw new BusinessException(
+                ErrorCode.BAD_REQUEST,
+                "题目数量需在 " + MIN_QUESTION_COUNT + " 到 " + MAX_QUESTION_COUNT + " 之间"
+            );
+        }
+        // Questions are generated from the stored resume, the same text the evaluator reads later,
+        // rather than whatever text the client sent.
+        String resumeText = resumeRepository.findByIdAndUserId(request.resumeId(), userId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN, "无权访问该简历"))
+            .getResumeText();
+        if (resumeText == null || resumeText.isBlank()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "这份简历没有可用内容，请重新上传");
         }
 
         InterviewMode mode = resolveMode(request.mode());
         String interviewerStyle = sanitizeStyle(request.interviewerStyle());
 
-        if (request.resumeId() != null && !Boolean.TRUE.equals(request.forceCreate())) {
+        if (!Boolean.TRUE.equals(request.forceCreate())) {
             Optional<InterviewSessionDTO> unfinishedOpt = findUnfinishedSession(userId, request.resumeId(), mode);
             if (unfinishedOpt.isPresent()) {
                 log.info(
@@ -82,23 +97,19 @@ public class InterviewSessionService {
         }
 
         String sessionId = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-        int questionCount = mode == InterviewMode.ORAL && request.questionCount() <= 0
-            ? DEFAULT_ORAL_QUESTION_COUNT
-            : request.questionCount();
-
-        List<String> historicalQuestions = (request.resumeId() == null || mode == InterviewMode.ORAL)
+        List<String> historicalQuestions = mode == InterviewMode.ORAL
             ? null
             : persistenceService.getHistoricalQuestionsByResumeId(request.resumeId());
 
         List<InterviewQuestionDTO> questions = questionService.generateQuestions(
-            request.resumeText(),
-            questionCount,
+            resumeText,
+            request.questionCount(),
             historicalQuestions
         );
 
         sessionCache.saveSession(
             sessionId,
-            request.resumeText(),
+            resumeText,
             request.resumeId(),
             questions,
             0,
@@ -107,24 +118,22 @@ public class InterviewSessionService {
             interviewerStyle
         );
 
-        if (request.resumeId() != null) {
-            try {
-                persistenceService.saveSession(
-                    sessionId,
-                    request.resumeId(),
-                    questions.size(),
-                    questions,
-                    mode,
-                    interviewerStyle
-                );
-            } catch (Exception exception) {
-                log.warn("Failed to persist interview session: {}", exception.getMessage());
-            }
+        try {
+            persistenceService.saveSession(
+                sessionId,
+                request.resumeId(),
+                questions.size(),
+                questions,
+                mode,
+                interviewerStyle
+            );
+        } catch (Exception exception) {
+            log.warn("Failed to persist interview session: {}", exception.getMessage());
         }
 
         return new InterviewSessionDTO(
             sessionId,
-            request.resumeText(),
+            resumeText,
             questions.size(),
             0,
             questions,
@@ -320,11 +329,29 @@ public class InterviewSessionService {
         log.info("Interview session completed early: {}", sessionId);
     }
 
+    /**
+     * Return the interview report. A report the async evaluator already saved is returned as is;
+     * while that evaluation is still queued or running the caller is told to wait. Only a session
+     * whose evaluation failed or was never queued is evaluated here, so polling this endpoint never
+     * starts a second AI evaluation.
+     */
     public InterviewReportDTO generateReport(String userId, String sessionId) {
         CachedSession session = getOrRestoreSession(userId, sessionId);
 
         if (session.getStatus() != SessionStatus.COMPLETED && session.getStatus() != SessionStatus.EVALUATED) {
             throw new BusinessException(ErrorCode.INTERVIEW_NOT_COMPLETED, "面试尚未完成");
+        }
+
+        Optional<InterviewSessionEntity> entityOpt = persistenceService.findBySessionIdAndUserId(sessionId, userId);
+        if (entityOpt.isPresent()) {
+            InterviewSessionEntity entity = entityOpt.get();
+            AsyncTaskStatus evaluateStatus = entity.getEvaluateStatus();
+            if (evaluateStatus == AsyncTaskStatus.PENDING || evaluateStatus == AsyncTaskStatus.PROCESSING) {
+                throw new BusinessException(ErrorCode.INTERVIEW_EVALUATION_IN_PROGRESS);
+            }
+            if (hasStoredReport(entity)) {
+                return toStoredReport(entity);
+            }
         }
 
         List<InterviewQuestionDTO> questions = session.getQuestions(objectMapper);
@@ -333,10 +360,65 @@ public class InterviewSessionService {
         sessionCache.updateSessionStatus(sessionId, SessionStatus.EVALUATED);
         try {
             persistenceService.saveReport(sessionId, report);
+            persistenceService.updateEvaluateStatus(sessionId, AsyncTaskStatus.COMPLETED, null);
         } catch (Exception exception) {
             log.warn("Failed to save interview report: {}", exception.getMessage());
         }
         return report;
+    }
+
+    private boolean hasStoredReport(InterviewSessionEntity entity) {
+        return entity.getStatus() == InterviewSessionEntity.SessionStatus.EVALUATED
+            && entity.getOverallScore() != null
+            && entity.getEvaluateStatus() != AsyncTaskStatus.FAILED;
+    }
+
+    private InterviewReportDTO toStoredReport(InterviewSessionEntity entity) {
+        List<InterviewAnswerEntity> answers = persistenceService.findAnswersBySessionId(entity.getSessionId());
+
+        List<InterviewReportDTO.QuestionEvaluation> questionDetails = answers.stream()
+            .map(answer -> new InterviewReportDTO.QuestionEvaluation(
+                answer.getQuestionIndex(),
+                answer.getQuestion(),
+                answer.getCategory(),
+                answer.getUserAnswer(),
+                answer.getScore() == null ? 0 : answer.getScore(),
+                answer.getFeedback()
+            ))
+            .toList();
+
+        Map<String, List<Integer>> scoresByCategory = new LinkedHashMap<>();
+        for (InterviewReportDTO.QuestionEvaluation detail : questionDetails) {
+            String category = detail.category() == null || detail.category().isBlank() ? "综合" : detail.category();
+            scoresByCategory.computeIfAbsent(category, key -> new ArrayList<>()).add(detail.score());
+        }
+        List<InterviewReportDTO.CategoryScore> categoryScores = scoresByCategory.entrySet().stream()
+            .map(entry -> new InterviewReportDTO.CategoryScore(
+                entry.getKey(),
+                (int) Math.round(entry.getValue().stream().mapToInt(Integer::intValue).average().orElse(0)),
+                entry.getValue().size()
+            ))
+            .toList();
+
+        int totalQuestions = entity.getTotalQuestions() == null ? questionDetails.size() : entity.getTotalQuestions();
+        return new InterviewReportDTO(
+            entity.getSessionId(),
+            totalQuestions,
+            entity.getOverallScore(),
+            categoryScores,
+            questionDetails,
+            entity.getOverallFeedback(),
+            parseJsonList(entity.getStrengthsJson(), new TypeReference<List<String>>() {
+            }),
+            parseJsonList(entity.getImprovementsJson(), new TypeReference<List<String>>() {
+            }),
+            parseJsonList(entity.getReferenceAnswersJson(), new TypeReference<List<InterviewReportDTO.ReferenceAnswer>>() {
+            })
+        );
+    }
+
+    private <T> List<T> parseJsonList(String json, TypeReference<List<T>> type) {
+        return JsonParseUtils.parseOrDefault(objectMapper, json, type, List.of(), log, "Failed to parse stored report JSON");
     }
 
     public String answerOralFollowUp(String userId, String sessionId, String question) {

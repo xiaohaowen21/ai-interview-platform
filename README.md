@@ -157,7 +157,7 @@ docker compose up -d --build
 | 用户端 | `http://localhost` |
 | 管理端 | `http://localhost/admin` |
 | 后端 API | `http://localhost:8080` |
-| 语音服务 | `http://localhost:8091` |
+| 语音服务 | `http://localhost:8091`（仅本机，浏览器经 `/voice-api/` 访问，需登录） |
 | PostgreSQL | `localhost:55432` |
 | MinIO Console | `http://localhost:19001` |
 
@@ -183,7 +183,9 @@ docker compose -f docker-compose.prod.yml ps
 | `AI_MODEL` | 文本模型名称（默认 qwen-plus）|
 | `VOICE_QWEN_MODEL` | 语音模型名称 |
 | `APP_ADMIN_USERNAME` | 管理员用户名 |
-| `APP_ADMIN_PASSWORD` | 管理员密码 |
+| `APP_ADMIN_PASSWORD` | 管理员初始密码，仅在首次创建管理员账号时使用；未设置时会生成随机密码并打印在后端日志里 |
+| `APP_ADMIN_RESET_PASSWORD_ON_STARTUP` | 设为 `true` 时启动会把管理员密码重置为 `APP_ADMIN_PASSWORD`，仅用于忘记密码时找回，找回后改回 `false` |
+| `APP_AI_ALLOW_PRIVATE_BASE_URL` | 设为 `true` 时允许管理端把 AI 服务地址配置为内网地址（如自建模型服务），默认禁止 |
 | `APP_AUTH_TOKEN_SECRET` | 登录令牌签名密钥，32 位以上随机字符串（`openssl rand -hex 32`）；生产部署必填 |
 | `APP_MAIL_HOST` | SMTP 主机 |
 | `APP_MAIL_PORT` | SMTP 端口 |

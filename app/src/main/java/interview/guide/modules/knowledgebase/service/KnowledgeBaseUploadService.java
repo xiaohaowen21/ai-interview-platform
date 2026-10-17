@@ -40,12 +40,13 @@ public class KnowledgeBaseUploadService {
     /**
      * 上传知识库文件
      *
+     * @param userId 上传者用户ID
      * @param file 知识库文件
      * @param name 知识库名称（可选，如果为空则从文件名提取）
      * @param category 分类（可选）
      * @return 上传结果和存储信息（包含duplicate字段，表示是否为重复上传）
      */
-    public Map<String, Object> uploadKnowledgeBase(MultipartFile file, String name, String category) {
+    public Map<String, Object> uploadKnowledgeBase(String userId, MultipartFile file, String name, String category) {
         // 1. 验证文件
         fileValidationService.validateFile(file, MAX_FILE_SIZE, "知识库");
 
@@ -56,9 +57,9 @@ public class KnowledgeBaseUploadService {
         String contentType = parseService.detectContentType(file);
         validateContentType(contentType, fileName);
 
-        // 3. 检查知识库是否已存在（去重）
+        // 3. 检查该用户是否已上传过同一文件（去重）
         String fileHash = fileHashService.calculateHash(file);
-        Optional<KnowledgeBaseEntity> existingKb = knowledgeBaseRepository.findByFileHash(fileHash);
+        Optional<KnowledgeBaseEntity> existingKb = knowledgeBaseRepository.findFirstByUserIdAndFileHash(userId, fileHash);
         if (existingKb.isPresent()) {
             log.info("检测到重复知识库: hash={}", fileHash);
             return persistenceService.handleDuplicateKnowledgeBase(existingKb.get(), fileHash);
@@ -76,7 +77,7 @@ public class KnowledgeBaseUploadService {
         log.info("知识库已存储到RustFS: {}", fileKey);
 
         // 6. 保存知识库元数据到数据库（状态为 PENDING）
-        KnowledgeBaseEntity savedKb = persistenceService.saveKnowledgeBase(file, name, category, fileKey, fileUrl, fileHash);
+        KnowledgeBaseEntity savedKb = persistenceService.saveKnowledgeBase(userId, file, name, category, fileKey, fileUrl, fileHash);
 
         // 7. 发送向量化任务到 Redis Stream（异步处理）
         vectorizeStreamProducer.sendVectorizeTask(savedKb.getId(), content);
@@ -118,11 +119,12 @@ public class KnowledgeBaseUploadService {
      * 重新向量化知识库（手动重试）
      * 从 RustFS 重新下载文件并发送向量化任务
      *
+     * @param userId 当前用户ID
      * @param kbId 知识库ID
      */
-    public void revectorize(Long kbId) {
-        KnowledgeBaseEntity kb = knowledgeBaseRepository.findById(kbId)
-            .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "知识库不存在"));
+    public void revectorize(String userId, Long kbId) {
+        KnowledgeBaseEntity kb = knowledgeBaseRepository.findByIdAndUserId(kbId, userId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.KNOWLEDGE_BASE_NOT_FOUND, "知识库不存在"));
 
         log.info("开始重新向量化知识库: kbId={}, name={}", kbId, kb.getName());
 

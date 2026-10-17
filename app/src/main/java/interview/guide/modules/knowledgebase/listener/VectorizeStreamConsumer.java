@@ -97,27 +97,11 @@ public class VectorizeStreamConsumer extends AbstractStreamConsumer<VectorizeStr
     }
 
     @Override
-    protected void retryMessage(VectorizePayload payload, int retryCount) {
-        Long kbId = payload.kbId();
-        String content = payload.content();
-        try {
-            Map<String, String> message = Map.of(
-                AsyncTaskStreamConstants.FIELD_KB_ID, kbId.toString(),
-                AsyncTaskStreamConstants.FIELD_CONTENT, content,
-                AsyncTaskStreamConstants.FIELD_RETRY_COUNT, String.valueOf(retryCount)
-            );
-
-            redisService().streamAdd(
-                AsyncTaskStreamConstants.KB_VECTORIZE_STREAM_KEY,
-                message,
-                AsyncTaskStreamConstants.STREAM_MAX_LEN
-            );
-            log.info("向量化任务已重新入队: kbId={}, retryCount={}", kbId, retryCount);
-
-        } catch (Exception e) {
-            log.error("重试入队失败: kbId={}, error={}", kbId, e.getMessage(), e);
-            updateVectorStatus(kbId, VectorStatus.FAILED, truncateError("重试入队失败: " + e.getMessage()));
-        }
+    protected Map<String, String> buildMessage(VectorizePayload payload) {
+        return Map.of(
+            AsyncTaskStreamConstants.FIELD_KB_ID, payload.kbId().toString(),
+            AsyncTaskStreamConstants.FIELD_CONTENT, payload.content()
+        );
     }
 
     /**

@@ -22,8 +22,12 @@ public class PublicStorageController {
     public ResponseEntity<byte[]> getPublicAsset(@RequestParam("key") String key) {
         FileStorageService.StoredFile file = fileStorageService.downloadPublicAsset(key);
         MediaType mediaType = resolveMediaType(file);
+        // 文件和站点同源：禁止浏览器猜测类型，并让直接打开的文件运行在沙箱里，
+        // 这样即使存储里有旧的 SVG/HTML 文件，也无法以站点身份执行脚本
         return ResponseEntity.ok()
             .cacheControl(CacheControl.maxAge(7, TimeUnit.DAYS).cachePublic())
+            .header("X-Content-Type-Options", "nosniff")
+            .header("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'")
             .contentType(mediaType)
             .body(file.bytes());
     }

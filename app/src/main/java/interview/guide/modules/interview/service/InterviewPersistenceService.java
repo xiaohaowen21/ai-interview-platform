@@ -21,8 +21,11 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Interview persistence service for sessions and answers.
@@ -285,6 +288,21 @@ public class InterviewPersistenceService {
             resumeId,
             mode == null ? InterviewMode.WRITTEN : mode
         );
+    }
+
+    /**
+     * Count interview sessions per resume in one query. Resumes without sessions are absent.
+     */
+    public Map<Long, Long> countSessionsByResumeIds(Collection<Long> resumeIds, InterviewMode mode) {
+        if (resumeIds == null || resumeIds.isEmpty()) {
+            return Map.of();
+        }
+        return sessionRepository.countByResumeIdsAndMode(resumeIds, mode == null ? InterviewMode.WRITTEN : mode)
+            .stream()
+            .collect(Collectors.toMap(
+                InterviewSessionRepository.ResumeSessionCount::getResumeId,
+                InterviewSessionRepository.ResumeSessionCount::getSessionCount
+            ));
     }
 
     /**

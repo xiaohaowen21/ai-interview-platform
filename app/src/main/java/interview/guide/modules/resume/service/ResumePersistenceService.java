@@ -20,7 +20,10 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -96,6 +99,22 @@ public class ResumePersistenceService {
 
     public Optional<ResumeAnalysisResponse> getLatestAnalysisAsDTO(Long resumeId) {
         return getLatestAnalysis(resumeId).map(this::entityToDTO);
+    }
+
+    /**
+     * 批量获取每份简历最新评测的摘要（分数、时间），没有评测的简历不在结果中。
+     */
+    public Map<Long, ResumeAnalysisRepository.LatestAnalysisSummary> getLatestAnalysisSummaries(Collection<Long> resumeIds) {
+        Map<Long, ResumeAnalysisRepository.LatestAnalysisSummary> latest = new HashMap<>();
+        if (resumeIds == null || resumeIds.isEmpty()) {
+            return latest;
+        }
+        for (ResumeAnalysisRepository.LatestAnalysisSummary summary
+                : analysisRepository.findLatestSummariesByResumeIds(resumeIds)) {
+            latest.merge(summary.getResumeId(), summary,
+                (current, candidate) -> candidate.getId() > current.getId() ? candidate : current);
+        }
+        return latest;
     }
 
     public List<ResumeEntity> findAllResumes(String userId) {

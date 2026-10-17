@@ -13,6 +13,7 @@ import interview.guide.modules.resume.model.ResumeAnalysisEntity;
 import interview.guide.modules.resume.model.ResumeDetailDTO;
 import interview.guide.modules.resume.model.ResumeEntity;
 import interview.guide.modules.resume.model.ResumeListItemDTO;
+import interview.guide.modules.resume.repository.ResumeAnalysisRepository.LatestAnalysisSummary;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -43,23 +45,19 @@ public class ResumeHistoryService {
      */
     public List<ResumeListItemDTO> getAllResumes(String userId) {
         List<ResumeEntity> resumes = resumePersistenceService.findAllResumes(userId);
+        List<Long> resumeIds = resumes.stream().map(ResumeEntity::getId).toList();
+
+        // 批量查询最新评分和面试次数，避免每份简历各查两次库
+        Map<Long, LatestAnalysisSummary> latestAnalyses =
+            resumePersistenceService.getLatestAnalysisSummaries(resumeIds);
+        Map<Long, Long> interviewCounts =
+            interviewPersistenceService.countSessionsByResumeIds(resumeIds, InterviewMode.WRITTEN);
 
         return resumes.stream().map(resume -> {
-            // 获取最新分析结果的分数
-            Integer latestScore = null;
-            java.time.LocalDateTime lastAnalyzedAt = null;
-            Optional<ResumeAnalysisEntity> analysisOpt = resumePersistenceService.getLatestAnalysis(resume.getId());
-            if (analysisOpt.isPresent()) {
-                ResumeAnalysisEntity analysis = analysisOpt.get();
-                latestScore = analysis.getOverallScore();
-                lastAnalyzedAt = analysis.getAnalyzedAt();
-            }
-
-            // 获取面试次数
-            int interviewCount = interviewPersistenceService.findByResumeIdAndMode(
-                resume.getId(),
-                InterviewMode.WRITTEN
-            ).size();
+            LatestAnalysisSummary analysis = latestAnalyses.get(resume.getId());
+            Integer latestScore = analysis == null ? null : analysis.getOverallScore();
+            java.time.LocalDateTime lastAnalyzedAt = analysis == null ? null : analysis.getAnalyzedAt();
+            int interviewCount = interviewCounts.getOrDefault(resume.getId(), 0L).intValue();
 
             // 使用 MapStruct 映射
             return new ResumeListItemDTO(

@@ -12,7 +12,6 @@ import interview.guide.modules.resume.repository.ResumeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 
@@ -98,8 +97,10 @@ public class ResumeUploadService {
 
     /**
      * Reanalyze a resume by fetching cached text or re-parsing if needed.
+     * Not transactional on purpose: the PENDING status must be committed before the
+     * task is queued, otherwise the consumer can read the old row and the late commit
+     * overwrites its PROCESSING/COMPLETED status with PENDING.
      */
-    @Transactional
     public void reanalyze(String userId, Long resumeId) {
         ResumeEntity resume = resumeRepository.findByIdAndUserId(resumeId, userId)
             .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_NOT_FOUND, "Resume not found"));

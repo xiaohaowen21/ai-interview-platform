@@ -19,10 +19,14 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /**
  * 限流 AOP 切面
@@ -33,6 +37,8 @@ import java.util.UUID;
 @Component
 @RequiredArgsConstructor
 public class RateLimitAspect {
+
+    private static final Pattern IP_LITERAL = Pattern.compile("\\d{1,3}(\\.\\d{1,3}){3}|[0-9A-Fa-f]*:[0-9A-Fa-f:.]*");
 
     private final RedissonClient redissonClient;
 
@@ -235,36 +241,45 @@ public class RateLimitAspect {
 
     /**
      * 获取客户端真实 IP
-     * 处理 X-Forwarded-For 头，支持代理服务器场景
+     *
+     * <p>只有请求来自内网代理（本项目的前端 nginx）时才采信它写入的 {@code X-Real-IP}；
+     * nginx 会用自己看到的地址覆盖这个头。{@code X-Forwarded-For} 的第一个值由客户端随意填写，
+     * 不能用于限流，否则换个值就能绕过按 IP 的限制。</p>
      */
     private String getClientIp() {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if (attributes == null) {
             return "unknown";
         }
+        return resolveClientIp(attributes.getRequest());
+    }
 
-        HttpServletRequest request = attributes.getRequest();
-        String ip = request.getHeader("X-Forwarded-For");
+    static String resolveClientIp(HttpServletRequest request) {
+        String remoteAddr = request.getRemoteAddr();
+        if (isTrustedProxy(remoteAddr)) {
+            String realIp = request.getHeader("X-Real-IP");
+            if (realIp != null && !realIp.isBlank()) {
+                return realIp.trim();
+            }
+        }
+        return remoteAddr != null ? remoteAddr : "unknown";
+    }
 
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("X-Real-IP");
+    private static boolean isTrustedProxy(String address) {
+        if (address == null || !IP_LITERAL.matcher(address.trim()).matches()) {
+            return false;
         }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
+        try {
+            // 只接受 IP 字面量，getByName 不会发起 DNS 查询
+            InetAddress inetAddress = InetAddress.getByName(address.trim());
+            if (inetAddress.isLoopbackAddress() || inetAddress.isSiteLocalAddress()) {
+                return true;
+            }
+            // IPv6 唯一本地地址 fc00::/7（Docker 的 IPv6 网络）
+            return inetAddress instanceof Inet6Address && (inetAddress.getAddress()[0] & 0xFE) == 0xFC;
+        } catch (UnknownHostException exception) {
+            return false;
         }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-
-        // 处理多个 IP 的情况（X-Forwarded-For 可能包含多个 IP）
-        if (ip != null && ip.contains(",")) {
-            ip = ip.split(",")[0].trim();
-        }
-
-        return ip != null ? ip : "unknown";
     }
 
     /**

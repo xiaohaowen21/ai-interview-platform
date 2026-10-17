@@ -4,15 +4,22 @@ import interview.guide.common.result.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.net.SocketTimeoutException;
 import java.util.stream.Collectors;
@@ -61,6 +68,59 @@ public class GlobalExceptionHandler {
         return Result.error(ErrorCode.BAD_REQUEST, message);
     }
     
+    /**
+     * 处理请求体无法解析（JSON 格式错误、字段类型不匹配等）
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.OK)
+    public Result<Void> handleMessageNotReadable(HttpMessageNotReadableException e) {
+        log.warn("请求体解析失败: {}", e.getMessage());
+        return Result.error(ErrorCode.BAD_REQUEST, "请求格式错误");
+    }
+
+    /**
+     * 处理缺少必填参数或上传文件
+     */
+    @ExceptionHandler({MissingServletRequestParameterException.class, MissingServletRequestPartException.class})
+    @ResponseStatus(HttpStatus.OK)
+    public Result<Void> handleMissingParameter(Exception e) {
+        log.warn("缺少请求参数: {}", e.getMessage());
+        String name = e instanceof MissingServletRequestParameterException missing
+            ? missing.getParameterName()
+            : ((MissingServletRequestPartException) e).getRequestPartName();
+        return Result.error(ErrorCode.BAD_REQUEST, "缺少参数: " + name);
+    }
+
+    /**
+     * 处理路径或查询参数类型不匹配（如 ID 传了非数字）
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.OK)
+    public Result<Void> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        log.warn("参数类型错误: name={}, value={}", e.getName(), e.getValue());
+        return Result.error(ErrorCode.BAD_REQUEST, "参数格式错误: " + e.getName());
+    }
+
+    /**
+     * 处理不支持的请求方法或内容类型
+     */
+    @ExceptionHandler({HttpRequestMethodNotSupportedException.class, HttpMediaTypeNotSupportedException.class})
+    @ResponseStatus(HttpStatus.OK)
+    public Result<Void> handleUnsupportedRequest(Exception e) {
+        log.warn("不支持的请求: {}", e.getMessage());
+        return Result.error(ErrorCode.BAD_REQUEST, "不支持的请求方式");
+    }
+
+    /**
+     * 处理不存在的接口路径
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.OK)
+    public Result<Void> handleNoResourceFound(NoResourceFoundException e) {
+        log.warn("接口不存在: {}", e.getResourcePath());
+        return Result.error(ErrorCode.NOT_FOUND, "接口不存在");
+    }
+
     /**
      * 处理文件上传大小超限异常
      */
