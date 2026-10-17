@@ -15,7 +15,6 @@ import edge_tts
 import httpx
 from dashscope.audio.asr import Recognition
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -99,15 +98,9 @@ class TranscribeResponse(BaseModel):
     provider: str = "dashscope"
 
 
+# 不开启 CORS：浏览器只经同源的 nginx /voice-api/ 访问，由 nginx 先向后端校验登录状态和调用额度。
+# 本服务不要直接暴露到公网。
 app = FastAPI(title="Interview Voice Service", version="1.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 @app.get("/health")

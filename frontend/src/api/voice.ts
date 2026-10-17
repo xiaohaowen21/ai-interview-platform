@@ -1,3 +1,5 @@
+import { getAuthHeaders } from '../utils/auth';
+
 export interface SynthesizeVoiceRequest {
   text: string;
   personaKey: string;
@@ -41,6 +43,7 @@ export const voiceApi = {
     const response = await fetchWithTimeout('/voice-api/synthesize', {
       method: 'POST',
       headers: {
+        ...getAuthHeaders(),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
@@ -59,6 +62,7 @@ export const voiceApi = {
 
     const response = await fetchWithTimeout('/voice-api/transcribe', {
       method: 'POST',
+      headers: getAuthHeaders(),
       body: formData,
     }, 180000);
 
