@@ -2,14 +2,13 @@ package interview.guide.modules.interview.model;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 /**
- * Create interview session request payload.
+ * Create interview session request payload. {@code resumeText} is ignored when creating a session:
+ * the server reads the stored text of {@code resumeId}. It is kept so older clients still parse.
  */
 public record CreateInterviewRequest(
-    @NotBlank(message = "简历内容不能为空")
     String resumeText,
 
     @Min(value = 1, message = "题目数量最少 1 题")

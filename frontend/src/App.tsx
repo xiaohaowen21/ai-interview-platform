@@ -1,6 +1,8 @@
 import { Suspense, lazy, useEffect, useState, type ReactElement } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { historyApi } from './api/history';
 import { getCurrentUser, subscribeAuthChange, type CurrentUser } from './utils/auth';
+import { getLastViewedResumeId } from './utils/resumeNavigation';
 
 const CareerArticleDetailPage = lazy(() => import('./pages/CareerArticleDetailPage'));
 const CareerArticlesPage = lazy(() => import('./pages/CareerArticlesPage'));
@@ -123,10 +125,40 @@ function InterviewRoute() {
   const location = useLocation();
   const params = useParams();
   const resumeId = Number(params.resumeId);
-  const resumeText = (location.state as { resumeText?: string } | null)?.resumeText ?? '';
+  const stateResumeText = (location.state as { resumeText?: string } | null)?.resumeText ?? '';
+  const [loadedResumeText, setLoadedResumeText] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const resumeText = stateResumeText || loadedResumeText || '';
 
-  if (!Number.isFinite(resumeId) || !resumeText) {
-    return <Navigate to={Number.isFinite(resumeId) ? `/history/${resumeId}` : '/history'} replace />;
+  // 刷新或直接打开链接时路由 state 为空，从接口重新取简历内容
+  useEffect(() => {
+    if (stateResumeText || !Number.isFinite(resumeId)) {
+      return;
+    }
+    let cancelled = false;
+    historyApi.getResumeDetail(resumeId)
+      .then((detail) => {
+        if (cancelled) return;
+        if (detail.resumeText?.trim()) {
+          setLoadedResumeText(detail.resumeText);
+        } else {
+          setLoadFailed(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [resumeId, stateResumeText]);
+
+  if (!Number.isFinite(resumeId) || loadFailed) {
+    return <Navigate to="/history" replace />;
+  }
+
+  if (!resumeText) {
+    return <RouteFallback />;
   }
 
   return (
@@ -163,7 +195,12 @@ function InterviewHistoryRoute() {
           state: { openTab: 'interview' },
         });
       }}
-      onStartMockInterview={() => navigate('/mock-interview')}
+      onStartWrittenInterview={() => {
+        // 文字面试从某份简历出发：优先回到最近查看的简历，没有就去简历列表选
+        const lastResumeId = getLastViewedResumeId();
+        navigate(lastResumeId ? `/history/${lastResumeId}/interview` : '/history');
+      }}
+      onStartOralInterview={() => navigate('/mock-interview')}
     />
   );
 }

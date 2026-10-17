@@ -24,7 +24,8 @@ interface InterviewHistoryPageProps {
   onBack: () => void;
   onViewInterview: (sessionId: string, resumeId?: number) => void;
   onViewTrend: (resumeId: number) => void;
-  onStartMockInterview: () => void;
+  onStartWrittenInterview: () => void;
+  onStartOralInterview: () => void;
 }
 
 interface InterviewWithResume extends InterviewItem {
@@ -183,7 +184,8 @@ export default function InterviewHistoryPage({
   onBack: _onBack,
   onViewInterview,
   onViewTrend,
-  onStartMockInterview,
+  onStartWrittenInterview,
+  onStartOralInterview,
 }: InterviewHistoryPageProps) {
   const [interviews, setInterviews] = useState<InterviewWithResume[]>([]);
   const [loading, setLoading] = useState(true);
@@ -318,7 +320,6 @@ export default function InterviewHistoryPage({
   const currentEmptyDesc = isMockTab
     ? '完成一次模拟面试后，记录将显示在这里'
     : '完成一次真实面试后，记录将显示在这里';
-  const canViewInterviewDetail = isMockTab;
   const countLabel = isMockTab ? '题目数' : '对话轮次';
   const exportTitle = isMockTab ? '导出PDF' : '导出对话';
   const statTotalLabel = isMockTab ? '模拟总数' : '真实总数';
@@ -402,8 +403,8 @@ export default function InterviewHistoryPage({
           label={statTotalLabel}
           value={stats.totalCount}
           color="bg-primary-500"
-          actionLabel={isMockTab ? '开始模拟面试' : undefined}
-          onAction={isMockTab ? onStartMockInterview : undefined}
+          actionLabel={isMockTab ? '开始模拟面试' : '开始语音面试'}
+          onAction={isMockTab ? onStartWrittenInterview : onStartOralInterview}
         />
         <StatCard
           icon={CheckCircle}
@@ -475,16 +476,8 @@ export default function InterviewHistoryPage({
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    onClick={() => {
-                      if (canViewInterviewDetail) {
-                        onViewInterview(interview.sessionId, interview.resumeId);
-                      }
-                    }}
-                    className={`border-b border-slate-50 dark:border-slate-700 transition-colors group ${
-                      canViewInterviewDetail
-                        ? 'hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer'
-                        : ''
-                    }`}
+                    onClick={() => onViewInterview(interview.sessionId, interview.resumeId)}
+                    className="border-b border-slate-50 dark:border-slate-700 transition-colors group hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -563,11 +556,9 @@ export default function InterviewHistoryPage({
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
-                        {canViewInterviewDetail && (
-                          <ChevronRight
-                            className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-primary-500 group-hover:translate-x-1 transition-all"
-                          />
-                        )}
+                        <ChevronRight
+                          className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-primary-500 group-hover:translate-x-1 transition-all"
+                        />
                       </div>
                     </td>
                   </motion.tr>
