@@ -115,27 +115,11 @@ public class AnalyzeStreamConsumer extends AbstractStreamConsumer<AnalyzeStreamC
     }
 
     @Override
-    protected void retryMessage(AnalyzePayload payload, int retryCount) {
-        Long resumeId = payload.resumeId();
-        String content = payload.content();
-        try {
-            Map<String, String> message = Map.of(
-                AsyncTaskStreamConstants.FIELD_RESUME_ID, resumeId.toString(),
-                AsyncTaskStreamConstants.FIELD_CONTENT, content,
-                AsyncTaskStreamConstants.FIELD_RETRY_COUNT, String.valueOf(retryCount)
-            );
-
-            redisService().streamAdd(
-                AsyncTaskStreamConstants.RESUME_ANALYZE_STREAM_KEY,
-                message,
-                AsyncTaskStreamConstants.STREAM_MAX_LEN
-            );
-            log.info("简历分析任务已重新入队: resumeId={}, retryCount={}", resumeId, retryCount);
-
-        } catch (Exception e) {
-            log.error("重试入队失败: resumeId={}, error={}", resumeId, e.getMessage(), e);
-            updateAnalyzeStatus(resumeId, AsyncTaskStatus.FAILED, truncateError("重试入队失败: " + e.getMessage()));
-        }
+    protected Map<String, String> buildMessage(AnalyzePayload payload) {
+        return Map.of(
+            AsyncTaskStreamConstants.FIELD_RESUME_ID, payload.resumeId().toString(),
+            AsyncTaskStreamConstants.FIELD_CONTENT, payload.content()
+        );
     }
 
     /**

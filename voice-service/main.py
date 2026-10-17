@@ -77,6 +77,8 @@ DASHSCOPE_ENDPOINT = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multim
 DASHSCOPE_MODEL = os.getenv("VOICE_QWEN_MODEL", "qwen3-tts-instruct-flash").strip() or "qwen3-tts-instruct-flash"
 ASR_MODEL = os.getenv("VOICE_ASR_MODEL", "paraformer-realtime-v2").strip() or "paraformer-realtime-v2"
 MAX_AUDIO_BYTES = 12 * 1024 * 1024
+# 12MB 录音转码通常几秒内完成；超时说明文件异常，避免 ffmpeg 卡住占满线程池
+FFMPEG_TIMEOUT_SECONDS = 60
 VOICE_RUNTIME_CONFIG_URL = (os.getenv("VOICE_RUNTIME_CONFIG_URL") or "").strip()
 VOICE_RUNTIME_CONFIG_TOKEN = (os.getenv("VOICE_RUNTIME_CONFIG_TOKEN") or "").strip()
 VOICE_RUNTIME_CONFIG_TIMEOUT_SECONDS = max(float(os.getenv("VOICE_RUNTIME_CONFIG_TIMEOUT_SECONDS", "4") or "4"), 1.0)
@@ -139,7 +141,8 @@ async def synthesize(req: SynthesizeRequest):
             )
             media_type = "audio/mpeg"
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"voice synth failed: {exc}") from exc
+            logger.exception("voice synthesize failed persona=%s", persona_key)
+            raise HTTPException(status_code=502, detail="语音合成失败，请稍后重试") from exc
 
     logger.info("voice synthesized provider=%s persona=%s len=%s", provider, persona_key, len(text))
     return Response(
@@ -183,7 +186,7 @@ async def transcribe(audio: UploadFile = File(...)):
         raise
     except Exception as exc:
         logger.exception("voice transcribe failed filename=%s content_type=%s", filename, audio.content_type)
-        raise HTTPException(status_code=502, detail=f"语音转写失败：{exc}") from exc
+        raise HTTPException(status_code=502, detail="语音转写失败，请稍后重试") from exc
     finally:
         if temp_input and temp_input.exists():
             temp_input.unlink(missing_ok=True)
@@ -238,13 +241,17 @@ def _convert_audio_to_wav(source_path: Path, target_path: Path) -> None:
         "pcm_s16le",
         str(target_path),
     ]
-    process = subprocess.run(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-    )
+    try:
+        process = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+            timeout=FFMPEG_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"ffmpeg timed out after {FFMPEG_TIMEOUT_SECONDS}s") from exc
     if process.returncode != 0:
         message = (process.stderr or process.stdout or "ffmpeg failed").strip()
         raise RuntimeError(message[-500:])
