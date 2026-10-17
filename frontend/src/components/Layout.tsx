@@ -9,6 +9,8 @@ import {
   Download,
   FileStack,
   FileText,
+  LogOut,
+  Menu,
   MessageSquare,
   Mic,
   Moon,
@@ -16,15 +18,17 @@ import {
   Sun,
   Upload,
   Users,
+  X,
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { getCurrentUser, logoutUser } from '../utils/auth';
 import { useI18n } from '../i18n/I18nContext';
-import LottieScene from './LottieScene';
+import RouteErrorBoundary from './RouteErrorBoundary';
 import { getLastViewedResumeId } from '../utils/resumeNavigation';
 
-const SIDEBAR_ANIMATION = 'https://assets1.lottiefiles.com/packages/lf20_kyu7xb1v.json';
 const BRAND_ICON_URL = '/favicon-mascot.png?v=20260413h';
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-slate-500 dark:focus-visible:ring-offset-slate-900';
 
 type ResumeTab = 'analysis' | 'rewrite' | 'interview';
 type HistoryChildActive = 'analysis' | 'rewrite' | 'interview' | 'export';
@@ -54,7 +58,8 @@ function SidebarNavButton(props: {
     <button
       type="button"
       onClick={onClick}
-      className={`group flex w-full items-center gap-3 rounded-2xl transition-all ${
+      aria-current={active ? 'page' : undefined}
+      className={`group flex w-full items-center gap-3 rounded-2xl transition-all ${FOCUS_RING} ${
         nested
           ? `px-3 py-2.5 text-sm ${
               active
@@ -113,7 +118,12 @@ function SidebarExpandableGroup(props: {
               : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
         }`}
       >
-        <button type="button" onClick={onNavigate} className="group flex min-w-0 flex-1 items-center gap-3">
+        <button
+          type="button"
+          onClick={onNavigate}
+          aria-current={active ? 'page' : undefined}
+          className={`group flex min-w-0 flex-1 items-center gap-3 rounded-xl ${FOCUS_RING}`}
+        >
           <div
             className={`flex h-10 w-10 items-center justify-center rounded-xl ${
               active
@@ -131,7 +141,7 @@ function SidebarExpandableGroup(props: {
         <button
           type="button"
           onClick={onToggle}
-          className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
+          className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${FOCUS_RING} ${
             active
               ? 'text-white/80 hover:bg-white/10 dark:text-slate-700 dark:hover:bg-slate-200'
               : 'text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white'
@@ -231,6 +241,31 @@ export default function Layout() {
     logoutUser();
     navigate('/auth');
   };
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // 手机端抽屉：切换页面后自动收起，Esc 关闭，打开时锁定背景滚动
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [currentPath, location.state]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMobileMenuOpen(false);
+      }
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileMenuOpen]);
 
   const sidebarSections = useMemo<SidebarSection[]>(() => {
     const sections: SidebarSection[] = [
@@ -397,7 +432,66 @@ export default function Layout() {
 
   const renderBrandIcon = (sizeClassName: string) => (
     <div className={`flex items-center justify-center overflow-hidden rounded-2xl ${sizeClassName}`}>
-      <img src={BRAND_ICON_URL} alt="面包图标" className="h-full w-full object-contain" />
+      <img src={BRAND_ICON_URL} alt="" className="h-full w-full object-contain" />
+    </div>
+  );
+
+  const renderPreferences = () => (
+    <div className="flex items-center gap-2">
+      <div
+        role="group"
+        aria-label={t('common.language')}
+        className="flex flex-1 items-center gap-1 rounded-2xl border border-slate-200 bg-slate-100 p-1 text-xs dark:border-slate-700 dark:bg-slate-800"
+      >
+        {(['zh', 'en'] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setLocale(value)}
+            aria-pressed={locale === value}
+            className={`flex-1 rounded-xl px-2 py-1.5 font-medium transition ${FOCUS_RING} ${
+              locale === value
+                ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-950 dark:text-white'
+                : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            }`}
+          >
+            {value === 'zh' ? t('common.chinese') : t('common.english')}
+          </button>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-label={theme === 'dark' ? t('common.lightMode') : t('common.darkMode')}
+        title={theme === 'dark' ? t('common.lightMode') : t('common.darkMode')}
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 text-slate-700 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 ${FOCUS_RING}`}
+      >
+        {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+
+  const renderAccount = () => (
+    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/70">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-sm font-semibold uppercase text-white dark:bg-white dark:text-slate-900">
+        {(currentUser?.username ?? 'G').slice(0, 1)}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+          {currentUser?.username ?? 'Guest'}
+        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{t('common.currentUser')}</p>
+      </div>
+      <button
+        type="button"
+        onClick={handleLogout}
+        aria-label={t('common.logout')}
+        title={t('common.logout')}
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50 ${FOCUS_RING}`}
+      >
+        <LogOut className="h-4 w-4" />
+      </button>
     </div>
   );
 
@@ -405,7 +499,7 @@ export default function Layout() {
     <div className="flex min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <aside className="fixed left-0 top-0 z-40 hidden h-screen w-80 flex-col border-r border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95 lg:flex">
         <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-          <Link to="/upload" className="flex items-center gap-3">
+          <Link to="/upload" className={`flex items-center gap-3 rounded-2xl ${FOCUS_RING}`}>
             {renderBrandIcon('h-12 w-12')}
             <div>
               <span className="block text-base font-bold tracking-tight">面包</span>
@@ -414,147 +508,92 @@ export default function Layout() {
           </Link>
         </div>
 
-        <div className="space-y-3 px-4 py-4">
-          <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-            <span>{t('common.language')}</span>
-            <div className="flex items-center gap-1 rounded-xl bg-white p-1 dark:bg-slate-950">
-              <button
-                type="button"
-                onClick={() => setLocale('zh')}
-                className={`rounded-lg px-2 py-1 ${locale === 'zh' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-500 dark:text-slate-300'}`}
-              >
-                {t('common.chinese')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setLocale('en')}
-                className={`rounded-lg px-2 py-1 ${locale === 'en' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-500 dark:text-slate-300'}`}
-              >
-                {t('common.english')}
-              </button>
-            </div>
-          </div>
+        <div className="px-4 py-4">{renderPreferences()}</div>
 
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-slate-700 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-          >
-            {theme === 'dark' ? (
-              <>
-                <Sun className="h-4 w-4" />
-                <span className="text-sm font-medium">{t('common.lightMode')}</span>
-              </>
-            ) : (
-              <>
-                <Moon className="h-4 w-4" />
-                <span className="text-sm font-medium">{t('common.darkMode')}</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto px-4 pb-4">
+        <nav aria-label={t('layout.mainNav')} className="flex-1 overflow-y-auto px-4 pb-4">
           {renderSidebarMenu()}
         </nav>
 
-        <div className="border-t border-slate-200 p-4 dark:border-slate-800">
-          <div className="mb-3 rounded-[28px] border border-slate-200 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800">
-            <div className="flex items-center gap-3">
-              <div className="h-16 w-16 overflow-hidden rounded-2xl bg-white dark:bg-slate-900">
-                <LottieScene src={SIDEBAR_ANIMATION} className="h-full w-full" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Workspace</p>
-                <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {currentUser?.username ?? 'Guest'}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{t('common.currentUser')}</p>
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full rounded-2xl bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/60"
-          >
-            {t('common.logout')}
-          </button>
-        </div>
+        <div className="border-t border-slate-200 p-4 dark:border-slate-800">{renderAccount()}</div>
       </aside>
 
-      <main className="min-h-screen flex-1 p-4 md:p-6 lg:ml-80 lg:p-8 xl:p-10">
-        <div className="mb-4 rounded-[28px] border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:hidden">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              {renderBrandIcon('h-11 w-11')}
-              <div>
-                <p className="text-sm font-bold">面包</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{currentUser?.username ?? 'Guest'}</p>
-              </div>
+      <main className="min-h-screen min-w-0 flex-1 p-4 md:p-6 lg:ml-80 lg:p-8 xl:p-10">
+        <header className="sticky top-0 z-30 -mx-4 -mt-4 mb-4 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/90 md:-mx-6 md:-mt-6 md:px-6 lg:hidden">
+          <Link to="/upload" className={`flex min-w-0 items-center gap-3 rounded-2xl ${FOCUS_RING}`}>
+            {renderBrandIcon('h-9 w-9')}
+            <div className="min-w-0">
+              <p className="text-sm font-bold">面包</p>
+              <p className="truncate text-xs text-slate-500 dark:text-slate-400">{currentUser?.username ?? 'Guest'}</p>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400"
-            >
-              {t('common.logout')}
-            </button>
-          </div>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label={t('layout.openMenu')}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-nav-drawer"
+            className={`flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${FOCUS_RING}`}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        </header>
 
-          <div className="mt-4 space-y-3 border-t border-slate-200 pt-4 dark:border-slate-800">
-            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-              <span>{t('common.language')}</span>
-              <div className="flex items-center gap-1 rounded-xl bg-white p-1 dark:bg-slate-950">
-                <button
-                  type="button"
-                  onClick={() => setLocale('zh')}
-                  className={`rounded-lg px-2 py-1 ${locale === 'zh' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-500 dark:text-slate-300'}`}
-                >
-                  {t('common.chinese')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLocale('en')}
-                  className={`rounded-lg px-2 py-1 ${locale === 'en' ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-500 dark:text-slate-300'}`}
-                >
-                  {t('common.english')}
-                </button>
-              </div>
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <div className="fixed inset-0 z-50 lg:hidden">
+              <motion.div
+                className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileMenuOpen(false)}
+                aria-hidden="true"
+              />
+              <motion.div
+                id="mobile-nav-drawer"
+                role="dialog"
+                aria-modal="true"
+                aria-label={t('layout.mainNav')}
+                className="absolute inset-y-0 left-0 flex w-[min(20rem,85vw)] flex-col bg-white shadow-2xl dark:bg-slate-900"
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    {renderBrandIcon('h-9 w-9')}
+                    <span className="text-sm font-bold">面包</span>
+                  </div>
+                  <button
+                    type="button"
+                    autoFocus
+                    onClick={() => setMobileMenuOpen(false)}
+                    aria-label={t('layout.closeMenu')}
+                    className={`flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white ${FOCUS_RING}`}
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="px-4 py-4">{renderPreferences()}</div>
+                <nav className="flex-1 overflow-y-auto px-4 pb-4">{renderSidebarMenu()}</nav>
+                <div className="border-t border-slate-200 p-4 dark:border-slate-800">{renderAccount()}</div>
+              </motion.div>
             </div>
+          )}
+        </AnimatePresence>
 
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-slate-700 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              {theme === 'dark' ? (
-                <>
-                  <Sun className="h-4 w-4" />
-                  <span className="text-sm font-medium">{t('common.lightMode')}</span>
-                </>
-              ) : (
-                <>
-                  <Moon className="h-4 w-4" />
-                  <span className="text-sm font-medium">{t('common.darkMode')}</span>
-                </>
-              )}
-            </button>
-
-            {renderSidebarMenu()}
-          </div>
-        </div>
-
-        <motion.div
-          key={currentPath}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -12 }}
-          transition={{ duration: 0.24 }}
-        >
-          <Outlet />
-        </motion.div>
+        <RouteErrorBoundary resetKey={currentPath} homePath="/upload">
+          <motion.div
+            key={currentPath}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.24 }}
+          >
+            <Outlet />
+          </motion.div>
+        </RouteErrorBoundary>
       </main>
     </div>
   );

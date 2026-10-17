@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { ImagePlus, Power, RefreshCcw, Search, Settings, Shield, Trash2, UserRound, Users } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import {
   adminApi,
   type InterviewerAvatarKey,
@@ -10,7 +10,7 @@ import {
 } from '../api/admin';
 import { getErrorMessage } from '../api/request';
 import MediaAsset from '../components/MediaAsset';
-import { ADMIN_SECTIONS, parseAdminSection } from '../constants/adminSections';
+import { parseAdminSection } from '../constants/adminSections';
 import { formatDateTime } from '../utils/date';
 import { getCurrentUser } from '../utils/auth';
 
@@ -57,7 +57,6 @@ function formatTime(value: string | null): string {
 export default function AdminPage() {
   const currentUser = getCurrentUser();
   const location = useLocation();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [testingSettings, setTestingSettings] = useState(false);
@@ -192,10 +191,6 @@ export default function AdminPage() {
   useEffect(() => {
     void loadData();
   }, []);
-
-  const handleSectionChange = (section: string) => {
-    navigate({ pathname: '/admin', hash: `#${section}` });
-  };
 
   const updateUserInList = (nextUser: AdminUserItem) => {
     setUsers((previous) => previous.map((item) => (item.id === nextUser.id ? nextUser : item)));
@@ -409,7 +404,7 @@ export default function AdminPage() {
           <button
             type="button"
             onClick={() => void loadData()}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+            className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
           >
             <RefreshCcw className="h-4 w-4" />
             刷新
@@ -421,27 +416,8 @@ export default function AdminPage() {
       </section>
 
       <div className="space-y-6">
-        <div className="rounded-3xl border border-slate-200 bg-white/90 p-3 shadow-sm lg:hidden">
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {ADMIN_SECTIONS.map((section) => (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => handleSectionChange(section.id)}
-                className={`whitespace-nowrap rounded-2xl px-3 py-2 text-sm font-semibold transition ${
-                  activeSection === section.id
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {section.title}
-              </button>
-            ))}
-          </div>
-        </div>
-
       {(activeSection === 'system' || activeSection === 'password') && (
-      <section className="grid gap-6">
+      <section className="grid grid-cols-1 gap-6">
         {activeSection === 'system' && (
         <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-900">
@@ -457,8 +433,8 @@ export default function AdminPage() {
           </div>
 
           <div className="mt-6 border-t border-slate-200 pt-5">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
-              <ImagePlus className="h-4 w-4 text-slate-600" />
+            <h3 className="mb-3 flex items-start gap-2 break-all text-sm font-semibold text-slate-800">
+              <ImagePlus className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />
               模块详情展示媒体（用于下方大展示位，支持 PNG/JPG/JPEG/WEBP/GIF/MP4/MOV/M4V/WEBM/OGG）
             </h3>
             <div className="grid gap-4 md:grid-cols-2">
@@ -517,8 +493,8 @@ export default function AdminPage() {
           </div>
 
           <div className="mt-6 border-t border-slate-200 pt-5">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
-              <ImagePlus className="h-4 w-4 text-slate-600" />
+            <h3 className="mb-3 flex items-start gap-2 break-all text-sm font-semibold text-slate-800">
+              <ImagePlus className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />
               核心功能卡片媒体（用于上方四张卡片缩略位，支持 PNG/JPG/JPEG/WEBP/GIF/MP4/MOV/M4V/WEBM/OGG）
             </h3>
             <div className="grid gap-4 md:grid-cols-2">
@@ -882,10 +858,12 @@ function ConfigField(props: {
   type?: string;
 }) {
   const { label, value, placeholder, onChange, type = 'text' } = props;
+  const inputId = useId();
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium text-slate-600">{label}</label>
+      <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-slate-600">{label}</label>
       <input
+        id={inputId}
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}

@@ -16,6 +16,9 @@ export const translations = {
     },
     layout: {
       brandSubTitle: '您的面试求职顾问',
+      mainNav: '主导航',
+      openMenu: '打开菜单',
+      closeMenu: '关闭菜单',
       groupCareer: '简历与面试',
       groupKnowledge: '知识库',
       groupManagement: '管理',
@@ -152,6 +155,9 @@ export const translations = {
     },
     layout: {
       brandSubTitle: 'Your interview job-seeking consultant',
+      mainNav: 'Main navigation',
+      openMenu: 'Open menu',
+      closeMenu: 'Close menu',
       groupCareer: 'Resume & Interview',
       groupKnowledge: 'Knowledge Base',
       groupManagement: 'Management',

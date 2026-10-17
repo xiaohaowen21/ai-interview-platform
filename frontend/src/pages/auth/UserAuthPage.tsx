@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { appConfigApi } from '../../api/appConfig';
 import { authApi, type EmailCodePurpose } from '../../api/auth';
-import DottedSurface from '../../components/DottedSurface';
 import MediaAsset from '../../components/MediaAsset';
 import { ProjectCard } from '../../components/newweb/ui/ProjectCard';
 import TestimonialMarquee from '../../components/newweb/ui/TestimonialMarquee';
@@ -11,6 +10,9 @@ import TurnstileWidget from '../../components/TurnstileWidget';
 import { useI18n } from '../../i18n/I18nContext';
 import { setCurrentUser } from '../../utils/auth';
 import '../../styles/auth.css';
+
+// three.js 体积较大，背景动画单独分包，不阻塞登录页首屏
+const DottedSurface = lazy(() => import('../../components/DottedSurface'));
 
 type RegisterStep = 1 | 2;
 type ModalMode = 'login' | 'register' | 'forgot' | null;
@@ -649,7 +651,11 @@ export default function UserAuthPage() {
       </div>
 
       <section className="section hero-section nav-scroll-target" id="nav-0" ref={(el) => { sectionsRef.current[0] = el; scrollTargetRefs.current[0] = el; scrollClickRefs.current[0] = el; }}>
-        {heroSurfaceReady ? <DottedSurface className="hero-dotted-surface" /> : null}
+        {heroSurfaceReady ? (
+          <Suspense fallback={null}>
+            <DottedSurface className="hero-dotted-surface" />
+          </Suspense>
+        ) : null}
         <h1 className="hero-title">{copy.heroTitle}</h1>
         <div className="hero-subtitle">{copy.heroSubtitle}</div>
         <div className="hero-buttons">
